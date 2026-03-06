@@ -15,7 +15,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,7 +37,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
+import com.danylo.seriesdiary.model.Episode
+import com.danylo.seriesdiary.model.SeriesDataSource
+import com.danylo.seriesdiary.model.TvSeries
 
 
 class MainActivity : ComponentActivity() {
@@ -41,8 +51,28 @@ class MainActivity : ComponentActivity() {
         setContent {
             SeriesDiaryTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Box(modifier = Modifier.padding(innerPadding)) {
-                        SeriesCardScreen()
+                    Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+                        Text(
+                            text = "Топові серіали (Список)",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                        TopRatedSeriesList(
+                            series = SeriesDataSource.topRatedSeries,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        Text(
+                            text = "Епізоди (Сітка)",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                        EpisodesGrid(
+                            episodes = SeriesDataSource.episodesSet.toList(),
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
@@ -51,92 +81,76 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
 
-@Preview(showBackground = true)
 @Composable
-fun SeriesCardPreview() {
-    SeriesDiaryTheme {
-        SeriesCardScreen()
+fun SeriesListItem(series: TvSeries) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp, horizontal = 16.dp)
+            .shadow(4.dp, RoundedCornerShape(8.dp))
+            .background(Color.White)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = series.title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(
+                text = "Рік: ${series.releaseYear} | Статус: ${series.status.description}",
+                color = Color.Gray
+            )
+        }
+        Text(text = "⭐ ${series.rating}", color = Color(0xFFFBC02D), fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
-fun SeriesCardScreen() {
-    Box(
+fun SeriesGridItem(episode: Episode) {
+    Column(
         modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
+            .padding(8.dp)
+            .shadow(4.dp, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFFE3F2FD))
             .padding(16.dp),
-        contentAlignment = Alignment.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(
-                    elevation = 8.dp,
-                    shape = RoundedCornerShape(16.dp)
-                )
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color.White)
-        ) {
+        Text(
+            text = episode.seriesTitle,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "S${episode.seasonNumber} E${episode.episodeNumber}",
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
 
-            Box {
-                Image(
-                    painter = painterResource(id = R.drawable.fallout_pic),
-                    contentDescription = "Постер серіалу",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
-                    contentScale = ContentScale.Crop
-                )
+@Composable
+fun TopRatedSeriesList(series: List<TvSeries>, modifier: Modifier = Modifier) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF5F5F5))
+    ) {
+        items(series) { item ->
+            SeriesListItem(item)
+        }
+    }
+}
 
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .background(Color(0xE6000000), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(text = "⭐ 8.3", color = Color.Yellow, fontWeight = FontWeight.Bold)
-                }
-            }
-
-
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Fallout",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                    Text(
-                        text = "Виходить",
-                        fontSize = 14.sp,
-                        color = Color(0xFF4CAF50),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Постапокаліптичний серіал про виживання у світі після ядерної війни. Очікується наступний сезон.",
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
-            }
+@Composable
+fun EpisodesGrid(episodes: List<Episode>, modifier: Modifier = Modifier) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+    ) {
+        items(episodes) { episode ->
+            SeriesGridItem(episode)
         }
     }
 }
