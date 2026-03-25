@@ -52,6 +52,8 @@ dependencies {
     // ДОДАЙТЕ ЦЕЙ РЯДОК ДЛЯ ІКОНОК:
     implementation("androidx.compose.material:material-icons-extended")
 
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
