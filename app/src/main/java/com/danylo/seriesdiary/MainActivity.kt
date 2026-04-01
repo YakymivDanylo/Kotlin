@@ -21,13 +21,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import com.danylo.seriesdiary.model.SeriesDataSource
-import com.danylo.seriesdiary.model.TvSeries
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.danylo.seriesdiary.ui.theme.SeriesDiaryTheme
+import com.danylo.seriesdiary.viewmodel.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,10 +49,8 @@ fun RootNavigation() {
     val rootNavController = rememberNavController()
 
     NavHost(navController = rootNavController, startDestination = "onboarding") {
-
         composable("onboarding") { entry ->
-            val savedName = entry.savedStateHandle.getStateFlow("userName", "").collectAsState()
-
+            val savedName = entry.savedStateHandle.getStateFlow("userName", "").collectAsStateWithLifecycle()
             OnboardingScreen(
                 currentName = savedName.value,
                 onEnterNameClick = { rootNavController.navigate("name_input") },
@@ -147,7 +146,7 @@ fun MainScreenWithTabs(userName: String) {
                     selected = currentTab == "tab_list",
                     onClick = {
                         currentTab = "tab_list"
-                        bottomNavController.navigate("tab_list") { popUpTo(bottomNavController.graph.startDestinationId) { saveState = true } ; launchSingleTop = true; restoreState = true }
+                        bottomNavController.navigate("tab_list") { popUpTo(bottomNavController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
                     }
                 )
                 NavigationBarItem(
@@ -156,7 +155,7 @@ fun MainScreenWithTabs(userName: String) {
                     selected = currentTab == "tab_grid",
                     onClick = {
                         currentTab = "tab_grid"
-                        bottomNavController.navigate("tab_grid") { popUpTo(bottomNavController.graph.startDestinationId) { saveState = true } ; launchSingleTop = true; restoreState = true }
+                        bottomNavController.navigate("tab_grid") { popUpTo(bottomNavController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
                     }
                 )
                 NavigationBarItem(
@@ -165,7 +164,7 @@ fun MainScreenWithTabs(userName: String) {
                     selected = currentTab == "tab_profile",
                     onClick = {
                         currentTab = "tab_profile"
-                        bottomNavController.navigate("tab_profile") { popUpTo(bottomNavController.graph.startDestinationId) { saveState = true } ; launchSingleTop = true; restoreState = true }
+                        bottomNavController.navigate("tab_profile") { popUpTo(bottomNavController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
                     }
                 )
             }
@@ -185,49 +184,50 @@ fun MainScreenWithTabs(userName: String) {
                 arguments = listOf(navArgument("seriesTitle") { type = NavType.StringType })
             ) { entry ->
                 val title = entry.arguments?.getString("seriesTitle") ?: ""
-                val series = SeriesDataSource.seriesList.find { it.title == title }
-                DetailsScreen(series, onBack = { bottomNavController.popBackStack() })
+                DetailsScreen(title, onBack = { bottomNavController.popBackStack() })
             }
         }
     }
 }
 
-
 @Composable
-fun ListTab(navController: NavHostController) {
-    var showOnlyFavorites by remember { mutableStateOf(false) }
-
-    val favorites = listOf("Breaking Bad", "The Boys")
-
-    val filteredList by remember(showOnlyFavorites) {
-        derivedStateOf {
-            if (showOnlyFavorites) {
-                SeriesDataSource.seriesList.filter { favorites.contains(it.title) }
-            } else {
-                SeriesDataSource.seriesList
-            }
-        }
-    }
+fun ListTab(navController: NavHostController, viewModel: ListViewModel = viewModel()) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val showOnlyFavorites by viewModel.showOnlyFavorites.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(checked = showOnlyFavorites, onCheckedChange = { showOnlyFavorites = it })
+            Switch(checked = showOnlyFavorites, onCheckedChange = { viewModel.toggleFavorites(it) })
             Spacer(modifier = Modifier.width(8.dp))
             Text("Показувати лише улюблені")
         }
         Spacer(modifier = Modifier.height(8.dp))
 
-        LazyColumn {
-            items(filteredList) { series ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
-                        navController.navigate("details/${series.title}")
+        when (val state = uiState) {
+            is ListUiState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            is ListUiState.Success -> {
+                LazyColumn {
+                    items(state.series) { series ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
+                                navController.navigate("details/${series.title}")
+                            }
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(series.title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                Text("Рік: ${series.releaseYear}", color = Color.Gray)
+                            }
+                        }
                     }
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(series.title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("Рік: ${series.releaseYear}", color = Color.Gray)
-                    }
+                }
+            }
+            is ListUiState.Error -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(state.message, color = Color.Red)
                 }
             }
         }
@@ -235,18 +235,9 @@ fun ListTab(navController: NavHostController) {
 }
 
 @Composable
-fun GridTab(navController: NavHostController) {
-    var sortByRating by remember { mutableStateOf(false) }
-
-    val sortedList by remember(sortByRating) {
-        derivedStateOf {
-            if (sortByRating) {
-                SeriesDataSource.seriesList.sortedByDescending { it.rating }
-            } else {
-                SeriesDataSource.seriesList.sortedBy { it.title }
-            }
-        }
-    }
+fun GridTab(navController: NavHostController, viewModel: GridViewModel = viewModel()) {
+    val sortedList by viewModel.series.collectAsStateWithLifecycle()
+    val sortByRating by viewModel.sortByRating.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -254,13 +245,13 @@ fun GridTab(navController: NavHostController) {
             Spacer(modifier = Modifier.width(8.dp))
             FilterChip(
                 selected = !sortByRating,
-                onClick = { sortByRating = false },
+                onClick = { viewModel.setSortByRating(false) },
                 label = { Text("Алфавітом") }
             )
             Spacer(modifier = Modifier.width(8.dp))
             FilterChip(
                 selected = sortByRating,
-                onClick = { sortByRating = true },
+                onClick = { viewModel.setSortByRating(true) },
                 label = { Text("Рейтингом") }
             )
         }
@@ -288,29 +279,47 @@ fun GridTab(navController: NavHostController) {
 }
 
 @Composable
-fun DetailsScreen(series: TvSeries?, onBack: () -> Unit) {
+fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
+    val factory = remember { DetailsViewModel.Factory(seriesTitle) }
+    val viewModel: DetailsViewModel = viewModel(factory = factory)
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Button(onClick = onBack) { Text("Назад") }
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (series != null) {
-            Text(series.title, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Рік випуску: ${series.releaseYear}")
-            Text("Статус: ${series.status.description}")
-            Text("Рейтинг: ${series.rating}")
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Опис: Чудовий серіал, який варто подивитись кожному. Відстежуйте свої епізоди тут!")
-        } else {
-            Text("Серіал не знайдено")
+        when (val state = uiState) {
+            is DetailsUiState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            is DetailsUiState.Success -> {
+                val series = state.series
+                Text(series.title, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Рік випуску: ${series.releaseYear}")
+                Text("Статус: ${series.status.description}")
+                Text("Рейтинг: ${series.rating}")
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Експертна думка: ${state.extraInfo}", fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Опис: Чудовий серіал, який варто подивитись кожному. Відстежуйте свої епізоди тут!")
+            }
+            is DetailsUiState.Error -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(state.message, color = Color.Red)
+                }
+            }
         }
     }
 }
 
-
 @Composable
 fun ProfileTab(initialUserName: String) {
-    var editableName by remember { mutableStateOf(initialUserName) }
+    val factory = remember { ProfileViewModel.Factory(initialUserName) }
+    val viewModel: ProfileViewModel = viewModel(factory = factory)
+    val editableName by viewModel.userName.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Профіль", fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -328,7 +337,7 @@ fun ProfileTab(initialUserName: String) {
 
         OutlinedTextField(
             value = editableName,
-            onValueChange = { editableName = it },
+            onValueChange = { viewModel.updateName(it) },
             label = { Text("Ваше ім'я (можна редагувати)") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
