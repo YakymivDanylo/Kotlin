@@ -45,9 +45,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Navigation
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun RootNavigation() {
@@ -89,9 +86,6 @@ fun RootNavigation() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Onboarding
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun OnboardingScreen(
@@ -114,7 +108,6 @@ fun OnboardingScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ✅ було: fontSize = 28.sp, fontWeight = FontWeight.Bold
         Text(
             text = "Щоденник Серіалів",
             style = MaterialTheme.typography.headlineMedium,
@@ -141,7 +134,7 @@ fun OnboardingScreen(
 }
 
 @Preview(name = "Onboarding – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
-@Preview(name = "Onboarding – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Preview(name = "Onboarding – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
 @Composable
 private fun OnboardingScreenPreview() {
     SeriesDiaryTheme {
@@ -153,9 +146,6 @@ private fun OnboardingScreenPreview() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Name Input
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun NameInputScreen(onSave: (String) -> Unit) {
@@ -188,7 +178,7 @@ fun NameInputScreen(onSave: (String) -> Unit) {
 }
 
 @Preview(name = "NameInput – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
-@Preview(name = "NameInput – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Preview(name = "NameInput – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
 @Composable
 private fun NameInputScreenPreview() {
     SeriesDiaryTheme {
@@ -196,9 +186,6 @@ private fun NameInputScreenPreview() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main + Tabs scaffold
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun MainScreenWithTabs(userName: String) {
@@ -270,9 +257,6 @@ fun MainScreenWithTabs(userName: String) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// List Tab
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun ListTab(navController: NavHostController, viewModel: ListViewModel = viewModel()) {
@@ -310,13 +294,11 @@ fun ListTab(navController: NavHostController, viewModel: ListViewModel = viewMod
                                 .clickable { navController.navigate("details/${series.title}") }
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                // ✅ було: fontSize = 18.sp, fontWeight = FontWeight.Bold
                                 Text(
                                     text = series.title,
                                     style = MaterialTheme.typography.titleLarge,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                // ✅ було: color = Color.Gray
                                 Text(
                                     text = "Рік: ${series.releaseYear}",
                                     style = MaterialTheme.typography.bodyMedium,
@@ -329,7 +311,6 @@ fun ListTab(navController: NavHostController, viewModel: ListViewModel = viewMod
             }
             is ListUiState.Error -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    // ✅ було: color = Color.Red
                     Text(
                         text = state.message,
                         style = MaterialTheme.typography.bodyLarge,
@@ -342,7 +323,7 @@ fun ListTab(navController: NavHostController, viewModel: ListViewModel = viewMod
 }
 
 @Preview(name = "ListTab – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
-@Preview(name = "ListTab – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Preview(name = "ListTab – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
 @Composable
 private fun ListTabPreview() {
     SeriesDiaryTheme {
@@ -350,9 +331,6 @@ private fun ListTabPreview() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Grid Tab
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun GridTab(navController: NavHostController, viewModel: GridViewModel = viewModel()) {
@@ -394,14 +372,12 @@ fun GridTab(navController: NavHostController, viewModel: GridViewModel = viewMod
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        // ✅ було: fontWeight = FontWeight.Bold (без стилю)
                         Text(
                             text = series.title,
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center
                         )
-                        // ✅ було: color = Color.Gray
                         Text(
                             text = "Рейтинг: ${series.rating}",
                             style = MaterialTheme.typography.bodySmall,
@@ -415,7 +391,7 @@ fun GridTab(navController: NavHostController, viewModel: GridViewModel = viewMod
 }
 
 @Preview(name = "GridTab – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
-@Preview(name = "GridTab – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Preview(name = "GridTab – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
 @Composable
 private fun GridTabPreview() {
     SeriesDiaryTheme {
@@ -423,9 +399,6 @@ private fun GridTabPreview() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Details Screen
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
@@ -448,7 +421,6 @@ fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
             is DetailsUiState.Success -> {
                 val series = state.series
 
-                // ✅ було: fontSize = 24.sp, fontWeight = FontWeight.Bold
                 Text(
                     text = series.title,
                     style = MaterialTheme.typography.headlineLarge,
@@ -471,7 +443,6 @@ fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                // ✅ було: fontStyle = FontStyle.Italic (без стилю типографіки)
                 Text(
                     text = "Експертна думка: ${state.extraInfo}",
                     style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
@@ -486,7 +457,6 @@ fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
             }
             is DetailsUiState.Error -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    // ✅ було: color = Color.Red
                     Text(
                         text = state.message,
                         style = MaterialTheme.typography.bodyLarge,
@@ -499,7 +469,7 @@ fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
 }
 
 @Preview(name = "Details – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
-@Preview(name = "Details – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Preview(name = "Details – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
 @Composable
 private fun DetailsScreenPreview() {
     SeriesDiaryTheme {
@@ -507,9 +477,6 @@ private fun DetailsScreenPreview() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Profile Tab
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun ProfileTab(initialUserName: String) {
@@ -518,7 +485,6 @@ fun ProfileTab(initialUserName: String) {
     val editableName by viewModel.userName.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        // ✅ було: fontSize = 24.sp, fontWeight = FontWeight.Bold
         Text(
             text = "Профіль",
             style = MaterialTheme.typography.headlineSmall,
@@ -528,7 +494,6 @@ fun ProfileTab(initialUserName: String) {
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                // ✅ було: fontWeight = FontWeight.Bold (без стилю)
                 Text(
                     text = "Інформація про додаток",
                     style = MaterialTheme.typography.titleSmall,
@@ -566,7 +531,7 @@ fun ProfileTab(initialUserName: String) {
 }
 
 @Preview(name = "Profile – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
-@Preview(name = "Profile – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Preview(name = "Profile – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
 @Composable
 private fun ProfileTabPreview() {
     SeriesDiaryTheme {
