@@ -30,6 +30,8 @@ import androidx.navigation.navArgument
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.danylo.seriesdiary.ui.theme.SeriesDiaryTheme
 import com.danylo.seriesdiary.viewmodel.*
+import com.example.compose.*
+import com.danylo.seriesdiary.model.SeriesStatus
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -367,6 +369,13 @@ fun GridTab(navController: NavHostController, viewModel: GridViewModel = viewMod
                         .aspectRatio(1f)
                         .clickable { navController.navigate("details/${series.title}") }
                 ) {
+
+                    val ratingColor = when {
+                        series.rating >= 8.5 -> RatingHigh
+                        series.rating < 6.0 -> RatingLow
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+
                     Column(
                         modifier = Modifier.fillMaxSize().padding(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -381,7 +390,7 @@ fun GridTab(navController: NavHostController, viewModel: GridViewModel = viewMod
                         Text(
                             text = "Рейтинг: ${series.rating}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = ratingColor
                         )
                     }
                 }
@@ -421,6 +430,19 @@ fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
             is DetailsUiState.Success -> {
                 val series = state.series
 
+                val statusColor = when (series.status) {
+                    SeriesStatus.CONTINUING -> StatusWatching
+                    SeriesStatus.ENDED -> StatusCompleted
+                    SeriesStatus.UPCOMING -> StatusPlanned
+                    SeriesStatus.UNKNOWN -> StatusDropped
+                }
+
+                val ratingColor = when {
+                    series.rating >= 8.5 -> RatingHigh
+                    series.rating < 6.0 -> RatingLow
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
+
                 Text(
                     text = series.title,
                     style = MaterialTheme.typography.headlineLarge,
@@ -435,12 +457,12 @@ fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
                 Text(
                     text = "Статус: ${series.status.description}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = statusColor
                 )
                 Text(
                     text = "Рейтинг: ${series.rating}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = ratingColor
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
