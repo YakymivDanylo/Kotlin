@@ -1,8 +1,5 @@
 package com.danylo.seriesdiary.model
 
-import com.danylo.seriesdiary.model.Episode
-import com.danylo.seriesdiary.model.SeriesStatus
-import com.danylo.seriesdiary.model.TvSeries
 
 object SeriesDataSource {
     val seriesList: List<TvSeries> = listOf(

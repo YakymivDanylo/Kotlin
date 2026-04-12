@@ -1,5 +1,6 @@
 package com.danylo.seriesdiary
 
+import android.app.Application
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -18,20 +19,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.danylo.seriesdiary.data.TvSeriesEntity
+import com.danylo.seriesdiary.model.SeriesStatus
 import com.danylo.seriesdiary.ui.theme.SeriesDiaryTheme
 import com.danylo.seriesdiary.viewmodel.*
 import com.example.compose.*
-import com.danylo.seriesdiary.model.SeriesStatus
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,54 +50,44 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
 @Composable
 fun RootNavigation() {
     val rootNavController = rememberNavController()
+    val onboardingVm: OnboardingViewModel = viewModel()
+    val savedName by onboardingVm.savedName.collectAsStateWithLifecycle()
+    val isLoading by onboardingVm.isLoading.collectAsStateWithLifecycle()
 
-    NavHost(navController = rootNavController, startDestination = "onboarding") {
-        composable("onboarding") { entry ->
-            val savedName = entry.savedStateHandle
-                .getStateFlow("userName", "")
-                .collectAsStateWithLifecycle()
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    val startDest = if (savedName.isNotBlank()) "main" else "onboarding"
+
+    NavHost(navController = rootNavController, startDestination = startDest) {
+        composable("onboarding") {
             OnboardingScreen(
-                currentName = savedName.value,
-                onEnterNameClick = { rootNavController.navigate("name_input") },
-                onStartClick = {
-                    rootNavController.navigate("main/${savedName.value}") {
+                onStartClick = { name ->
+                    onboardingVm.saveName(name)
+                    rootNavController.navigate("main") {
                         popUpTo("onboarding") { inclusive = true }
                     }
                 }
             )
         }
 
-        composable("name_input") {
-            NameInputScreen(
-                onSave = { name ->
-                    rootNavController.previousBackStackEntry
-                        ?.savedStateHandle?.set("userName", name)
-                    rootNavController.popBackStack()
-                }
-            )
-        }
-
-        composable(
-            route = "main/{userName}",
-            arguments = listOf(navArgument("userName") { type = NavType.StringType })
-        ) { entry ->
-            val userName = entry.arguments?.getString("userName") ?: "Користувач"
-            MainScreenWithTabs(userName = userName)
+        composable("main") {
+            MainScreenWithTabs()
         }
     }
 }
 
-
 @Composable
-fun OnboardingScreen(
-    currentName: String,
-    onEnterNameClick: () -> Unit,
-    onStartClick: () -> Unit
-) {
+fun OnboardingScreen(onStartClick: (String) -> Unit) {
+    var name by remember { mutableStateOf("") }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -117,52 +110,9 @@ fun OnboardingScreen(
         )
         Spacer(modifier = Modifier.height(32.dp))
 
-        Button(onClick = onEnterNameClick) {
-            Text(
-                text = if (currentName.isEmpty()) "Ввести ім'я" else "Змінити ім'я ($currentName)",
-                style = MaterialTheme.typography.labelLarge
-            )
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        val isStartEnabled = currentName.isNotBlank()
-        Button(onClick = onStartClick, enabled = isStartEnabled) {
-            Text(
-                text = if (isStartEnabled) "Привіт, $currentName! Розпочати" else "Розпочати",
-                style = MaterialTheme.typography.labelLarge
-            )
-        }
-    }
-}
-
-@Preview(name = "Onboarding – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
-@Preview(name = "Onboarding – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
-@Composable
-private fun OnboardingScreenPreview() {
-    SeriesDiaryTheme {
-        OnboardingScreen(
-            currentName = "Данило",
-            onEnterNameClick = {},
-            onStartClick = {}
-        )
-    }
-}
-
-
-@Composable
-fun NameInputScreen(onSave: (String) -> Unit) {
-    var text by remember { mutableStateOf("") }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
         OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
+            value = name,
+            onValueChange = { name = it },
             label = {
                 Text(
                     text = "Ваше ім'я",
@@ -173,24 +123,30 @@ fun NameInputScreen(onSave: (String) -> Unit) {
             singleLine = true
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { onSave(text) }, enabled = text.isNotBlank()) {
-            Text(text = "Зберегти", style = MaterialTheme.typography.labelLarge)
+
+        Button(
+            onClick = { onStartClick(name) },
+            enabled = name.isNotBlank()
+        ) {
+            Text(
+                text = if (name.isNotBlank()) "Привіт, $name! Розпочати" else "Розпочати",
+                style = MaterialTheme.typography.labelLarge
+            )
         }
     }
 }
 
-@Preview(name = "NameInput – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
-@Preview(name = "NameInput – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
+@Preview(name = "Onboarding – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
+@Preview(name = "Onboarding – Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
 @Composable
-private fun NameInputScreenPreview() {
+private fun OnboardingScreenPreview() {
     SeriesDiaryTheme {
-        NameInputScreen(onSave = {})
+        OnboardingScreen(onStartClick = {})
     }
 }
 
-
 @Composable
-fun MainScreenWithTabs(userName: String) {
+fun MainScreenWithTabs() {
     val bottomNavController = rememberNavController()
     var currentTab by remember { mutableStateOf("tab_list") }
 
@@ -224,12 +180,12 @@ fun MainScreenWithTabs(userName: String) {
                     }
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Профіль") },
-                    label = { Text("Профіль", style = MaterialTheme.typography.labelSmall) },
-                    selected = currentTab == "tab_profile",
+                    icon = { Icon(Icons.Default.Settings, contentDescription = "Налаштування") },
+                    label = { Text("Налаштування", style = MaterialTheme.typography.labelSmall) },
+                    selected = currentTab == "tab_settings",
                     onClick = {
-                        currentTab = "tab_profile"
-                        bottomNavController.navigate("tab_profile") {
+                        currentTab = "tab_settings"
+                        bottomNavController.navigate("tab_settings") {
                             popUpTo(bottomNavController.graph.startDestinationId) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
@@ -244,9 +200,9 @@ fun MainScreenWithTabs(userName: String) {
             startDestination = "tab_list",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("tab_list")    { ListTab(bottomNavController) }
-            composable("tab_grid")    { GridTab(bottomNavController) }
-            composable("tab_profile") { ProfileTab(userName) }
+            composable("tab_list") { ListTab(bottomNavController) }
+            composable("tab_grid") { GridTab(bottomNavController) }
+            composable("tab_settings") { SettingsTab() }
 
             composable(
                 route = "details/{seriesTitle}",
@@ -259,6 +215,7 @@ fun MainScreenWithTabs(userName: String) {
     }
 }
 
+// ─── List Tab ───
 
 @Composable
 fun ListTab(navController: NavHostController, viewModel: ListViewModel = viewModel()) {
@@ -288,24 +245,38 @@ fun ListTab(navController: NavHostController, viewModel: ListViewModel = viewMod
             }
             is ListUiState.Success -> {
                 LazyColumn {
-                    items(state.series) { series ->
+                    items(state.series, key = { it.id }) { series ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
                                 .clickable { navController.navigate("details/${series.title}") }
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = series.title,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Рік: ${series.releaseYear}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = series.title,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Рік: ${series.releaseYear}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                IconButton(onClick = { viewModel.toggleFavorite(series) }) {
+                                    Icon(
+                                        imageVector = if (series.isFavorite) Icons.Default.Star
+                                        else Icons.Default.StarBorder,
+                                        contentDescription = "Улюблене",
+                                        tint = if (series.isFavorite) RatingHigh
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
@@ -325,7 +296,7 @@ fun ListTab(navController: NavHostController, viewModel: ListViewModel = viewMod
 }
 
 @Preview(name = "ListTab – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
-@Preview(name = "ListTab – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
+@Preview(name = "ListTab – Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
 @Composable
 private fun ListTabPreview() {
     SeriesDiaryTheme {
@@ -333,6 +304,7 @@ private fun ListTabPreview() {
     }
 }
 
+// ─── Grid Tab ───
 
 @Composable
 fun GridTab(navController: NavHostController, viewModel: GridViewModel = viewModel()) {
@@ -362,14 +334,13 @@ fun GridTab(navController: NavHostController, viewModel: GridViewModel = viewMod
         Spacer(modifier = Modifier.height(8.dp))
 
         LazyVerticalGrid(columns = GridCells.Fixed(2)) {
-            items(sortedList) { series ->
+            items(sortedList, key = { it.id }) { series ->
                 Card(
                     modifier = Modifier
                         .padding(4.dp)
                         .aspectRatio(1f)
                         .clickable { navController.navigate("details/${series.title}") }
                 ) {
-
                     val ratingColor = when {
                         series.rating >= 8.5 -> RatingHigh
                         series.rating < 6.0 -> RatingLow
@@ -400,7 +371,7 @@ fun GridTab(navController: NavHostController, viewModel: GridViewModel = viewMod
 }
 
 @Preview(name = "GridTab – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
-@Preview(name = "GridTab – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
+@Preview(name = "GridTab – Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
 @Composable
 private fun GridTabPreview() {
     SeriesDiaryTheme {
@@ -408,10 +379,12 @@ private fun GridTabPreview() {
     }
 }
 
+// ─── Details Screen ───
 
 @Composable
 fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
-    val factory = remember { DetailsViewModel.Factory(seriesTitle) }
+    val application = LocalContext.current.applicationContext as Application
+    val factory = remember { DetailsViewModel.Factory(application, seriesTitle) }
     val viewModel: DetailsViewModel = viewModel(factory = factory)
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -429,8 +402,9 @@ fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
             }
             is DetailsUiState.Success -> {
                 val series = state.series
+                val seriesStatus = series.toSeriesStatus()
 
-                val statusColor = when (series.status) {
+                val statusColor = when (seriesStatus) {
                     SeriesStatus.CONTINUING -> StatusWatching
                     SeriesStatus.ENDED -> StatusCompleted
                     SeriesStatus.UPCOMING -> StatusPlanned
@@ -455,7 +429,7 @@ fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Статус: ${series.status.description}",
+                    text = "Статус: ${seriesStatus.description}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = statusColor
                 )
@@ -491,7 +465,7 @@ fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
 }
 
 @Preview(name = "Details – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
-@Preview(name = "Details – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
+@Preview(name = "Details – Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
 @Composable
 private fun DetailsScreenPreview() {
     SeriesDiaryTheme {
@@ -499,16 +473,17 @@ private fun DetailsScreenPreview() {
     }
 }
 
+// ─── Settings Tab ───
 
 @Composable
-fun ProfileTab(initialUserName: String) {
-    val factory = remember { ProfileViewModel.Factory(initialUserName) }
-    val viewModel: ProfileViewModel = viewModel(factory = factory)
-    val editableName by viewModel.userName.collectAsStateWithLifecycle()
+fun SettingsTab(viewModel: SettingsViewModel = viewModel()) {
+    val userName by viewModel.userName.collectAsStateWithLifecycle()
+    val sortByRating by viewModel.defaultSortByRating.collectAsStateWithLifecycle()
+    val showEnded by viewModel.showEndedSeries.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text(
-            text = "Профіль",
+            text = "Налаштування",
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onBackground
         )
@@ -537,11 +512,11 @@ fun ProfileTab(initialUserName: String) {
         Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
-            value = editableName,
+            value = userName,
             onValueChange = { viewModel.updateName(it) },
             label = {
                 Text(
-                    text = "Ваше ім'я (можна редагувати)",
+                    text = "Ваше ім'я",
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
@@ -549,14 +524,57 @@ fun ProfileTab(initialUserName: String) {
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Параметри відображення",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Сортування за рейтингом",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Switch(
+                checked = sortByRating,
+                onCheckedChange = { viewModel.setDefaultSortByRating(it) }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Показувати завершені серіали",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Switch(
+                checked = showEnded,
+                onCheckedChange = { viewModel.setShowEndedSeries(it) }
+            )
+        }
     }
 }
 
-@Preview(name = "Profile – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
-@Preview(name = "Profile – Dark",  uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
+@Preview(name = "Settings – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
+@Preview(name = "Settings – Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
 @Composable
-private fun ProfileTabPreview() {
+private fun SettingsTabPreview() {
     SeriesDiaryTheme {
-        ProfileTab(initialUserName = "Данило")
+        SettingsTab()
     }
 }
