@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-// ─── List ───
+
 
 sealed interface ListUiState {
     object Loading : ListUiState
@@ -62,7 +62,7 @@ class ListViewModel(application: Application) : AndroidViewModel(application) {
     }
 }
 
-// ─── Details ───
+
 
 sealed interface DetailsUiState {
     object Loading : DetailsUiState
@@ -108,7 +108,6 @@ class DetailsViewModel(
     }
 }
 
-// ─── Grid ───
 
 class GridViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -135,7 +134,6 @@ class GridViewModel(application: Application) : AndroidViewModel(application) {
     }
 }
 
-// ─── Settings / Profile ───
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -163,7 +161,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 }
 
-// ─── Onboarding ───
 
 class OnboardingViewModel(application: Application) : AndroidViewModel(application) {
 
