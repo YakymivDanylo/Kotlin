@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -204,13 +205,94 @@ fun MainScreenWithTabs() {
             composable("tab_grid") { GridTab(bottomNavController) }
             composable("tab_settings") { SettingsTab() }
 
-            composable(
-                route = "details/{seriesTitle}",
-                arguments = listOf(navArgument("seriesTitle") { type = NavType.StringType })
-            ) { entry ->
-                val title = entry.arguments?.getString("seriesTitle") ?: ""
-                DetailsScreen(title, onBack = { bottomNavController.popBackStack() })
+            composable("add_series") {
+                AddSeriesScreen(onDone = { bottomNavController.popBackStack() })
             }
+
+            composable(
+                route = "details/{seriesId}",
+                arguments = listOf(navArgument("seriesId") { type = NavType.StringType })
+            ) { entry ->
+                val id = entry.arguments?.getString("seriesId") ?: ""
+                DetailsScreen(id, onBack = { bottomNavController.popBackStack() })
+            }
+        }
+    }
+}
+
+// ─── Offline banner ───
+
+@Composable
+private fun OfflineBanner() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.CloudOff,
+            contentDescription = "Офлайн",
+            tint = MaterialTheme.colorScheme.onErrorContainer
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Офлайн-режим: показано кешовані дані",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onErrorContainer
+        )
+    }
+}
+
+// ─── Error view ───
+
+@Composable
+private fun ErrorView(message: String, onRetry: () -> Unit) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(24.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.ErrorOutline,
+                contentDescription = "Помилка",
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(48.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onRetry) {
+                Text("Повторити", style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
+}
+
+// ─── Empty view ───
+
+@Composable
+private fun EmptyView(message: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Default.Inbox,
+                contentDescription = "Порожньо",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(48.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -221,77 +303,127 @@ fun MainScreenWithTabs() {
 fun ListTab(navController: NavHostController, viewModel: ListViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val showOnlyFavorites by viewModel.showOnlyFavorites.collectAsStateWithLifecycle()
+    val isMutating by viewModel.isMutating.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(
-                checked = showOnlyFavorites,
-                onCheckedChange = { viewModel.toggleFavorites(it) }
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Показувати лише улюблені",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+    LaunchedEffect(Unit) {
+        viewModel.errorEvents.collect { msg ->
+            snackbarHostState.showSnackbar(msg)
         }
-        Spacer(modifier = Modifier.height(8.dp))
+    }
 
-        when (val state = uiState) {
-            is ListUiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (uiState is ListUiState.Success && (uiState as ListUiState.Success).isFromCache) {
+                OfflineBanner()
             }
-            is ListUiState.Success -> {
-                LazyColumn {
-                    items(state.series, key = { it.id }) { series ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clickable { navController.navigate("details/${series.title}") }
+
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(
+                        checked = showOnlyFavorites,
+                        onCheckedChange = { viewModel.toggleFavorites(it) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Показувати лише улюблені",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                when (val state = uiState) {
+                    is ListUiState.Loading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize().weight(1f),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = series.title,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "Рік: ${series.releaseYear}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                IconButton(onClick = { viewModel.toggleFavorite(series) }) {
-                                    Icon(
-                                        imageVector = if (series.isFavorite) Icons.Default.Star
-                                        else Icons.Default.StarBorder,
-                                        contentDescription = "Улюблене",
-                                        tint = if (series.isFavorite) RatingHigh
-                                        else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                            CircularProgressIndicator()
+                        }
+                    }
+                    is ListUiState.Success -> {
+                        if (state.series.isEmpty()) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                EmptyView("Немає серіалів. Додайте перший через кнопку +")
+                            }
+                        } else {
+                            LazyColumn(modifier = Modifier.weight(1f)) {
+                                items(state.series, key = { it.id }) { series ->
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp)
+                                            .clickable(enabled = !isMutating) {
+                                                navController.navigate("details/${series.id}")
+                                            }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = series.title,
+                                                    style = MaterialTheme.typography.titleLarge,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "Рік: ${series.releaseYear}",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            IconButton(
+                                                onClick = { viewModel.toggleFavorite(series) },
+                                                enabled = !isMutating
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (series.isFavorite) Icons.Default.Star
+                                                    else Icons.Default.StarBorder,
+                                                    contentDescription = "Улюблене",
+                                                    tint = if (series.isFavorite) RatingHigh
+                                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            IconButton(
+                                                onClick = { viewModel.deleteSeries(series.id) },
+                                                enabled = !isMutating
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Видалити",
+                                                    tint = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            }
-            is ListUiState.Error -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = state.message,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    is ListUiState.Error -> {
+                        Box(modifier = Modifier.weight(1f)) {
+                            ErrorView(state.message, onRetry = { viewModel.refresh() })
+                        }
+                    }
                 }
             }
         }
+
+        FloatingActionButton(
+            onClick = { navController.navigate("add_series") },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Додати серіал")
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
@@ -308,62 +440,83 @@ private fun ListTabPreview() {
 
 @Composable
 fun GridTab(navController: NavHostController, viewModel: GridViewModel = viewModel()) {
-    val sortedList by viewModel.series.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val sortByRating by viewModel.sortByRating.collectAsStateWithLifecycle()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "Сортувати за:",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            FilterChip(
-                selected = !sortByRating,
-                onClick = { viewModel.setSortByRating(false) },
-                label = { Text("Алфавітом", style = MaterialTheme.typography.labelMedium) }
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            FilterChip(
-                selected = sortByRating,
-                onClick = { viewModel.setSortByRating(true) },
-                label = { Text("Рейтингом", style = MaterialTheme.typography.labelMedium) }
-            )
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (uiState is GridUiState.Success && (uiState as GridUiState.Success).isFromCache) {
+            OfflineBanner()
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Сортувати за:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                FilterChip(
+                    selected = !sortByRating,
+                    onClick = { viewModel.setSortByRating(false) },
+                    label = { Text("Алфавітом", style = MaterialTheme.typography.labelMedium) }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                FilterChip(
+                    selected = sortByRating,
+                    onClick = { viewModel.setSortByRating(true) },
+                    label = { Text("Рейтингом", style = MaterialTheme.typography.labelMedium) }
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
 
-        LazyVerticalGrid(columns = GridCells.Fixed(2)) {
-            items(sortedList, key = { it.id }) { series ->
-                Card(
-                    modifier = Modifier
-                        .padding(4.dp)
-                        .aspectRatio(1f)
-                        .clickable { navController.navigate("details/${series.title}") }
-                ) {
-                    val ratingColor = when {
-                        series.rating >= 8.5 -> RatingHigh
-                        series.rating < 6.0 -> RatingLow
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+            when (val state = uiState) {
+                is GridUiState.Loading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
                     }
+                }
+                is GridUiState.Success -> {
+                    if (state.series.isEmpty()) {
+                        EmptyView("Немає серіалів")
+                    } else {
+                        LazyVerticalGrid(columns = GridCells.Fixed(2)) {
+                            items(state.series, key = { it.id }) { series ->
+                                Card(
+                                    modifier = Modifier
+                                        .padding(4.dp)
+                                        .aspectRatio(1f)
+                                        .clickable { navController.navigate("details/${series.id}") }
+                                ) {
+                                    val ratingColor = when {
+                                        series.rating >= 8.5 -> RatingHigh
+                                        series.rating < 6.0 -> RatingLow
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
 
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = series.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = "Рейтинг: ${series.rating}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = ratingColor
-                        )
+                                    Column(
+                                        modifier = Modifier.fillMaxSize().padding(8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = series.title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Text(
+                                            text = "Рейтинг: ${series.rating}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = ratingColor
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
+                }
+                is GridUiState.Error -> {
+                    ErrorView(state.message, onRetry = { viewModel.refresh() })
                 }
             }
         }
@@ -382,82 +535,81 @@ private fun GridTabPreview() {
 // ─── Details Screen ───
 
 @Composable
-fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
+fun DetailsScreen(seriesId: String, onBack: () -> Unit) {
     val application = LocalContext.current.applicationContext as Application
-    val factory = remember { DetailsViewModel.Factory(application, seriesTitle) }
+    val factory = remember { DetailsViewModel.Factory(application, seriesId) }
     val viewModel: DetailsViewModel = viewModel(factory = factory)
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Button(onClick = onBack) {
-            Text(text = "Назад", style = MaterialTheme.typography.labelLarge)
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (uiState is DetailsUiState.Success && (uiState as DetailsUiState.Success).isFromCache) {
+            OfflineBanner()
         }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        when (val state = uiState) {
-            is DetailsUiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Button(onClick = onBack) {
+                Text(text = "Назад", style = MaterialTheme.typography.labelLarge)
             }
-            is DetailsUiState.Success -> {
-                val series = state.series
-                val seriesStatus = series.toSeriesStatus()
+            Spacer(modifier = Modifier.height(16.dp))
 
-                val statusColor = when (seriesStatus) {
-                    SeriesStatus.CONTINUING -> StatusWatching
-                    SeriesStatus.ENDED -> StatusCompleted
-                    SeriesStatus.UPCOMING -> StatusPlanned
-                    SeriesStatus.UNKNOWN -> StatusDropped
+            when (val state = uiState) {
+                is DetailsUiState.Loading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
                 }
+                is DetailsUiState.Success -> {
+                    val series = state.series
+                    val seriesStatus = series.toSeriesStatus()
 
-                val ratingColor = when {
-                    series.rating >= 8.5 -> RatingHigh
-                    series.rating < 6.0 -> RatingLow
-                    else -> MaterialTheme.colorScheme.onSurface
-                }
+                    val statusColor = when (seriesStatus) {
+                        SeriesStatus.CONTINUING -> StatusWatching
+                        SeriesStatus.ENDED -> StatusCompleted
+                        SeriesStatus.UPCOMING -> StatusPlanned
+                        SeriesStatus.UNKNOWN -> StatusDropped
+                    }
 
-                Text(
-                    text = series.title,
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Рік випуску: ${series.releaseYear}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Статус: ${seriesStatus.description}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = statusColor
-                )
-                Text(
-                    text = "Рейтинг: ${series.rating}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = ratingColor
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Експертна думка: ${state.extraInfo}",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Опис: Чудовий серіал, який варто подивитись кожному. Відстежуйте свої епізоди тут!",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            is DetailsUiState.Error -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    val ratingColor = when {
+                        series.rating >= 8.5 -> RatingHigh
+                        series.rating < 6.0 -> RatingLow
+                        else -> MaterialTheme.colorScheme.onSurface
+                    }
+
                     Text(
-                        text = state.message,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error
+                        text = series.title,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Рік випуску: ${series.releaseYear}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Статус: ${seriesStatus.description}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = statusColor
+                    )
+                    Text(
+                        text = "Рейтинг: ${series.rating}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ratingColor
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Експертна думка: ${state.extraInfo}",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Опис: Чудовий серіал, який варто подивитись кожному. Відстежуйте свої епізоди тут!",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                is DetailsUiState.Error -> {
+                    ErrorView(state.message, onRetry = { viewModel.loadDetails() })
                 }
             }
         }
@@ -469,7 +621,155 @@ fun DetailsScreen(seriesTitle: String, onBack: () -> Unit) {
 @Composable
 private fun DetailsScreenPreview() {
     SeriesDiaryTheme {
-        DetailsScreen(seriesTitle = "Breaking Bad", onBack = {})
+        DetailsScreen(seriesId = "1", onBack = {})
+    }
+}
+
+// ─── Add Series Screen ───
+
+@Composable
+fun AddSeriesScreen(
+    viewModel: AddSeriesViewModel = viewModel(),
+    onDone: () -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    var title by remember { mutableStateOf("") }
+    var year by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf(SeriesStatus.CONTINUING) }
+    var rating by remember { mutableStateOf("") }
+    var statusMenuExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState) {
+        if (uiState is AddSeriesUiState.Saved) {
+            viewModel.reset()
+            onDone()
+        }
+    }
+
+    val isSaving = uiState is AddSeriesUiState.Saving
+    val yearInt = year.toIntOrNull()
+    val ratingDouble = rating.replace(',', '.').toDoubleOrNull()
+    val isValid = title.isNotBlank() &&
+            yearInt != null && yearInt in 1900..2100 &&
+            ratingDouble != null && ratingDouble in 0.0..10.0
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onDone, enabled = !isSaving) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Новий серіал",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text("Назва") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !isSaving
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = year,
+            onValueChange = { year = it.filter { ch -> ch.isDigit() } },
+            label = { Text("Рік випуску") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !isSaving
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = rating,
+            onValueChange = { rating = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' } },
+            label = { Text("Рейтинг (0–10)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !isSaving
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Статус",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Box(modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { if (!isSaving) statusMenuExpanded = true },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isSaving
+            ) {
+                Text(status.description, modifier = Modifier.weight(1f))
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = null
+                )
+            }
+            DropdownMenu(
+                expanded = statusMenuExpanded,
+                onDismissRequest = { statusMenuExpanded = false }
+            ) {
+                SeriesStatus.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.description) },
+                        onClick = {
+                            status = option
+                            statusMenuExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Button(
+            onClick = {
+                viewModel.save(
+                    title = title.trim(),
+                    releaseYear = yearInt ?: 0,
+                    status = status.name,
+                    rating = ratingDouble ?: 0.0
+                )
+            },
+            enabled = isValid && !isSaving,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (isSaving) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Text("Зберегти", style = MaterialTheme.typography.labelLarge)
+        }
+
+        (uiState as? AddSeriesUiState.Error)?.let { error ->
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = error.message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+@Preview(name = "Add – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
+@Preview(name = "Add – Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
+@Composable
+private fun AddSeriesScreenPreview() {
+    SeriesDiaryTheme {
+        AddSeriesScreen(onDone = {})
     }
 }
 

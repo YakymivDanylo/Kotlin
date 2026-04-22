@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.androidApp)
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.kotlinCompose)
+    alias(libs.plugins.kotlinSerialization)
     id("com.google.devtools.ksp") version "2.0.21-1.0.27"
 }
 
@@ -57,12 +58,17 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
 
-    // ДОДАЙТЕ ЦЕЙ РЯДОК ДЛЯ ІКОНОК:
     implementation("androidx.compose.material:material-icons-extended")
 
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -6,7 +6,7 @@ import com.danylo.seriesdiary.model.SeriesStatus
 
 @Entity(tableName = "tv_series")
 data class TvSeriesEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @PrimaryKey val id: String,
     val title: String,
     val releaseYear: Int,
     val status: String,

@@ -2,7 +2,21 @@
   "permissions": {
     "allow": [
       "Bash(git checkout:*)",
-      "Bash(./gradlew :app:compileDebugKotlin)"
+      "Bash(./gradlew :app:compileDebugKotlin)",
+      "Bash(./gradlew :app:compileDebugKotlin --no-daemon)",
+      "Read(//usr/lib/**)",
+      "Read(//mnt/c/**)",
+      "Read(//opt/**)",
+      "Read(//home/danylo/**)",
+      "Bash(dpkg -l)",
+      "Bash(apt list *)",
+      "Bash(sudo -n apt-get install -y openjdk-17-jdk-headless)",
+      "Bash(cmd.exe /c 'gradlew.bat :app:compileDebugKotlin --no-daemon')",
+      "Bash(cmd.exe /c 'set \"JAVA_HOME=C:\\\\Users\\\\danyl\\\\AppData\\\\Local\\\\Programs\\\\Android Studio\\\\jbr\" && gradlew.bat :app:compileDebugKotlin --no-daemon')",
+      "Bash(cmd.exe /c 'set \"JAVA_HOME=C:\\\\Users\\\\danyl\\\\AppData\\\\Local\\\\Programs\\\\Android Studio\\\\jbr\" && echo JAVA_HOME=%JAVA_HOME% && \"%JAVA_HOME%\\\\bin\\\\java.exe\" -version')",
+      "Bash(cmd.exe /c 'run-gradle.bat :app:compileDebugKotlin --no-daemon')",
+      "Bash(cmd.exe /c 'run-gradle.bat :app:clean :app:compileDebugKotlin --no-daemon')",
+      "WebFetch(domain:69e398983327837a15535404.mockapi.io)"
     ]
   }
 }
