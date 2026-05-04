@@ -58,11 +58,12 @@ class SeriesRepository(
         title: String,
         releaseYear: Int,
         status: String,
-        rating: Double
+        rating: Double,
+        isFavorite: Boolean = false
     ): FetchResult<TvSeriesEntity> {
         return try {
             val dto = api.createSeries(CreateSeriesRequest(title, releaseYear, status, rating))
-            val entity = dto.toEntity()
+            val entity = dto.toEntity().copy(isFavorite = isFavorite)
             dao.insert(entity)
             FetchResult.Success(entity)
         } catch (e: IOException) {

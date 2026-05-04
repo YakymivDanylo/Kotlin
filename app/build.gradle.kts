@@ -42,6 +42,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.compose.material3:material3-window-size-class")
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
     val room_version = "2.6.1"

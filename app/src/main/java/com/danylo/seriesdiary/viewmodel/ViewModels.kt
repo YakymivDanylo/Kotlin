@@ -258,11 +258,11 @@ class AddSeriesViewModel(application: Application) : AndroidViewModel(applicatio
     private val _uiState = MutableStateFlow<AddSeriesUiState>(AddSeriesUiState.Idle)
     val uiState: StateFlow<AddSeriesUiState> = _uiState.asStateFlow()
 
-    fun save(title: String, releaseYear: Int, status: String, rating: Double) {
+    fun save(title: String, releaseYear: Int, status: String, rating: Double, isFavorite: Boolean = false) {
         if (_uiState.value is AddSeriesUiState.Saving) return
         viewModelScope.launch {
             _uiState.value = AddSeriesUiState.Saving
-            when (val result = repository.createSeries(title, releaseYear, status, rating)) {
+            when (val result = repository.createSeries(title, releaseYear, status, rating, isFavorite)) {
                 is FetchResult.Success -> _uiState.value = AddSeriesUiState.Saved
                 is FetchResult.Offline -> _uiState.value =
                     AddSeriesUiState.Error("Офлайн-режим: збереження недоступне")
