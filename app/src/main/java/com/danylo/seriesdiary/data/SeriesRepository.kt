@@ -3,6 +3,7 @@ package com.danylo.seriesdiary.data
 import com.danylo.seriesdiary.network.CreateSeriesRequest
 import com.danylo.seriesdiary.network.RetrofitClient
 import com.danylo.seriesdiary.network.SeriesApiService
+import com.danylo.seriesdiary.network.UpdateFavoriteRequest
 import kotlinx.coroutines.flow.Flow
 import java.io.IOException
 
@@ -22,8 +23,8 @@ class SeriesRepository(
     suspend fun refreshSeries(): FetchResult<List<TvSeriesEntity>> {
         return try {
             val remote = api.getAllSeries()
-            val existingFavorites = dao.getAllSeriesOnce()
-                .associate { it.id to it.isFavorite }
+            // previousFavorite is a fallback for records created before isFavorite was in the API
+            val existingFavorites = dao.getAllSeriesOnce().associate { it.id to it.isFavorite }
             val entities = remote.map { dto ->
                 dto.toEntity(previousFavorite = existingFavorites[dto.id ?: ""] ?: false)
             }
@@ -66,9 +67,19 @@ class SeriesRepository(
     ): FetchResult<TvSeriesEntity> {
         return try {
             val dto = api.createSeries(
-                CreateSeriesRequest(title, releaseYear, status, rating, numberOfSeasons, imdbUrl, comment)
+                CreateSeriesRequest(
+                    title = title,
+                    releaseYear = releaseYear,
+                    status = status,
+                    rating = rating,
+                    isFavorite = isFavorite,
+                    numberOfSeasons = numberOfSeasons,
+                    imdbUrl = imdbUrl,
+                    comment = comment
+                )
             )
-            val entity = dto.toEntity().copy(isFavorite = isFavorite)
+            // Use previousFavorite=isFavorite in case API doesn't echo the field back
+            val entity = dto.toEntity(previousFavorite = isFavorite)
             dao.insert(entity)
             FetchResult.Success(entity)
         } catch (e: IOException) {
@@ -90,6 +101,12 @@ class SeriesRepository(
         }
     }
 
-    suspend fun toggleFavorite(id: String, isFavorite: Boolean) =
+    suspend fun toggleFavorite(id: String, isFavorite: Boolean) {
         dao.updateFavorite(id, isFavorite)
+        try {
+            api.updateFavorite(id, UpdateFavoriteRequest(isFavorite))
+        } catch (_: Exception) {
+            // best-effort: локальний стан оновлено, API — при наступному refresh
+        }
+    }
 }
