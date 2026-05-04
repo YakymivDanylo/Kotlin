@@ -716,17 +716,19 @@ fun AddSeriesScreen(
 
     // ── Adaptive wrapper: centered max-width on tablet (Slice 6) ──
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } },
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.TopCenter
     ) {
         Column(
             modifier = Modifier
-                .then(if (isExpanded) Modifier.widthIn(max = 600.dp) else Modifier.fillMaxWidth())
+                .then(
+                    if (isExpanded) Modifier.widthIn(max = 600.dp).fillMaxWidth()
+                    else Modifier.fillMaxWidth()
+                )
                 .verticalScroll(rememberScrollState())
                 .imePadding()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
+                .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }
         ) {
             // Header
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
@@ -916,7 +918,10 @@ fun AddSeriesScreen(
                             releaseYear = year.toIntOrNull() ?: 0,
                             status = status!!.name,
                             rating = ratingSlider.toDouble(),
-                            isFavorite = isFavorite
+                            isFavorite = isFavorite,
+                            numberOfSeasons = numberOfSeasons.toIntOrNull() ?: 1,
+                            imdbUrl = imdbUrl.trim(),
+                            comment = comment.trim()
                         )
                     }
                 },

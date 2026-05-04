@@ -12,7 +12,10 @@ data class SeriesDto(
     @SerialName("title") val title: String,
     @SerialName("releaseYear") val releaseYear: Int,
     @SerialName("status") val status: String? = null,
-    @SerialName("rating") val rating: Double? = null
+    @SerialName("rating") val rating: Double? = null,
+    @SerialName("numberOfSeasons") val numberOfSeasons: Int? = null,
+    @SerialName("imdbUrl") val imdbUrl: String? = null,
+    @SerialName("comment") val comment: String? = null
 ) {
     fun toEntity(previousFavorite: Boolean = false): TvSeriesEntity = TvSeriesEntity(
         id = id ?: title,
@@ -20,7 +23,10 @@ data class SeriesDto(
         releaseYear = releaseYear,
         status = status ?: "UNKNOWN",
         rating = rating ?: 0.0,
-        isFavorite = previousFavorite
+        isFavorite = previousFavorite,
+        numberOfSeasons = numberOfSeasons ?: 1,
+        imdbUrl = imdbUrl ?: "",
+        comment = comment ?: ""
     )
 }
 
@@ -29,5 +35,8 @@ data class CreateSeriesRequest(
     @SerialName("title") val title: String,
     @SerialName("releaseYear") val releaseYear: Int,
     @SerialName("status") val status: String,
-    @SerialName("rating") val rating: Double
+    @SerialName("rating") val rating: Double,
+    @SerialName("numberOfSeasons") val numberOfSeasons: Int,
+    @SerialName("imdbUrl") val imdbUrl: String,
+    @SerialName("comment") val comment: String
 )

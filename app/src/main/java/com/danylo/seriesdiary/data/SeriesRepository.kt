@@ -59,10 +59,15 @@ class SeriesRepository(
         releaseYear: Int,
         status: String,
         rating: Double,
-        isFavorite: Boolean = false
+        isFavorite: Boolean = false,
+        numberOfSeasons: Int = 1,
+        imdbUrl: String = "",
+        comment: String = ""
     ): FetchResult<TvSeriesEntity> {
         return try {
-            val dto = api.createSeries(CreateSeriesRequest(title, releaseYear, status, rating))
+            val dto = api.createSeries(
+                CreateSeriesRequest(title, releaseYear, status, rating, numberOfSeasons, imdbUrl, comment)
+            )
             val entity = dto.toEntity().copy(isFavorite = isFavorite)
             dao.insert(entity)
             FetchResult.Success(entity)
