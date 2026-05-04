@@ -724,7 +724,6 @@ fun AddSeriesScreen(
         Column(
             modifier = Modifier
                 .then(if (isExpanded) Modifier.widthIn(max = 600.dp) else Modifier.fillMaxWidth())
-                .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .imePadding()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -793,7 +792,7 @@ fun AddSeriesScreen(
                     supportingText = statusError?.let { err -> { Text(err, color = MaterialTheme.colorScheme.error) } },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .menuAnchor()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                         .onFocusChanged { if (!it.isFocused) statusTouched = true },
                     enabled = !isSaving
                 )
