@@ -2,7 +2,8 @@ package com.danylo.seriesdiary.data
 
 import com.danylo.seriesdiary.model.SeriesStatus
 
-object SeedData {
+object
+SeedData {
     val initialSeries = listOf(
         TvSeriesEntity(
             id = "seed-1",

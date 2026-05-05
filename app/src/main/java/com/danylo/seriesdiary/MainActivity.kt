@@ -37,10 +37,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -56,7 +58,7 @@ import com.danylo.seriesdiary.viewmodel.*
 import com.example.compose.*
 
 // ─── IMDb URL validation regex ───
-private val IMDB_URL_REGEX = Regex("""^https?://www\.imdb\.com/title/tt\d{7,8}/?$""")
+private val IMDB_URL_REGEX = Regex("""^https?://www\.imdb\.com/title/tt\d{7,8}/?(\?[^#\s]*)?$""")
 
 // ─── Validation helpers ───
 
@@ -626,11 +628,26 @@ fun DetailsScreen(seriesId: String, onBack: () -> Unit) {
                         series.rating < 6.0 -> RatingLow
                         else -> MaterialTheme.colorScheme.onSurface
                     }
+                    val uriHandler = LocalUriHandler.current
                     Text(series.title, style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onBackground)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Рік випуску: ${series.releaseYear}", style = MaterialTheme.typography.bodyMedium)
                     Text("Статус: ${seriesStatus.description}", style = MaterialTheme.typography.bodyMedium, color = statusColor)
                     Text("Рейтинг: ${series.rating}", style = MaterialTheme.typography.bodyMedium, color = ratingColor)
+                    if (series.imdbUrl.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("IMDb: ", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = "Відкрити на IMDb",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textDecoration = TextDecoration.Underline
+                                ),
+                                modifier = Modifier.clickable { uriHandler.openUri(series.imdbUrl) }
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         "Експертна думка: ${state.extraInfo}",
@@ -676,12 +693,17 @@ fun AddSeriesScreen(
     var comment by remember { mutableStateOf("") }
     var statusMenuExpanded by remember { mutableStateOf(false) }
 
-    // ── Touched state (triggers on-blur validation) ──
+    // ── Touched/Dirty state ──
+    // dirty = user typed something; touched = blurred after dirty (or submit attempted)
     var titleTouched by remember { mutableStateOf(false) }
+    var titleDirty by remember { mutableStateOf(false) }
     var yearTouched by remember { mutableStateOf(false) }
+    var yearDirty by remember { mutableStateOf(false) }
     var statusTouched by remember { mutableStateOf(false) }
     var seasonsTouched by remember { mutableStateOf(false) }
+    var seasonsDirty by remember { mutableStateOf(false) }
     var imdbUrlTouched by remember { mutableStateOf(false) }
+    var imdbUrlDirty by remember { mutableStateOf(false) }
 
     // ── Per-field error messages ──
     val titleError = if (titleTouched) validateTitle(title) else null
@@ -716,7 +738,10 @@ fun AddSeriesScreen(
 
     // ── Adaptive wrapper: centered max-width on tablet (Slice 6) ──
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
+            .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } },
         contentAlignment = Alignment.TopCenter
     ) {
         Column(
@@ -726,9 +751,7 @@ fun AddSeriesScreen(
                     else Modifier.fillMaxWidth()
                 )
                 .verticalScroll(rememberScrollState())
-                .imePadding()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
-                .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }
         ) {
             // Header
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
@@ -745,14 +768,16 @@ fun AddSeriesScreen(
             // Назва (текстове поле, валідація: не порожнє + мін. 2 символи)
             OutlinedTextField(
                 value = title,
-                onValueChange = { title = it },
+                onValueChange = { title = it; titleDirty = true },
                 label = { Text("Назва серіалу *") },
                 isError = titleError != null,
                 supportingText = titleError?.let { err -> { Text(err, color = MaterialTheme.colorScheme.error) } },
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(titleFocus)
-                    .onFocusChanged { if (!it.isFocused) titleTouched = true },
+                    .onFocusChanged { fs ->
+                        if (!fs.isFocused && titleDirty) titleTouched = true
+                    },
                 singleLine = true,
                 enabled = !isSaving,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
@@ -763,14 +788,16 @@ fun AddSeriesScreen(
             // Рік випуску (числове поле, валідація: діапазон 1900–2100)
             OutlinedTextField(
                 value = year,
-                onValueChange = { year = it.filter(Char::isDigit) },
+                onValueChange = { year = it.filter(Char::isDigit); yearDirty = true },
                 label = { Text("Рік випуску *") },
                 isError = yearError != null,
                 supportingText = yearError?.let { err -> { Text(err, color = MaterialTheme.colorScheme.error) } },
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(yearFocus)
-                    .onFocusChanged { if (!it.isFocused) yearTouched = true },
+                    .onFocusChanged { fs ->
+                        if (!fs.isFocused && yearDirty) yearTouched = true
+                    },
                 singleLine = true,
                 enabled = !isSaving,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
@@ -794,8 +821,7 @@ fun AddSeriesScreen(
                     supportingText = statusError?.let { err -> { Text(err, color = MaterialTheme.colorScheme.error) } },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                        .onFocusChanged { if (!it.isFocused) statusTouched = true },
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                     enabled = !isSaving
                 )
                 ExposedDropdownMenu(
@@ -837,14 +863,16 @@ fun AddSeriesScreen(
             // Кількість сезонів (числове поле, валідація: 1–50)
             OutlinedTextField(
                 value = numberOfSeasons,
-                onValueChange = { numberOfSeasons = it.filter(Char::isDigit) },
+                onValueChange = { numberOfSeasons = it.filter(Char::isDigit); seasonsDirty = true },
                 label = { Text("Кількість сезонів *") },
                 isError = seasonsError != null,
                 supportingText = seasonsError?.let { err -> { Text(err, color = MaterialTheme.colorScheme.error) } },
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(seasonsFocus)
-                    .onFocusChanged { if (!it.isFocused) seasonsTouched = true },
+                    .onFocusChanged { fs ->
+                        if (!fs.isFocused && seasonsDirty) seasonsTouched = true
+                    },
                 singleLine = true,
                 enabled = !isSaving,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
@@ -868,7 +896,7 @@ fun AddSeriesScreen(
             // IMDb URL (валідація за регулярним виразом)
             OutlinedTextField(
                 value = imdbUrl,
-                onValueChange = { imdbUrl = it },
+                onValueChange = { imdbUrl = it; imdbUrlDirty = true },
                 label = { Text("IMDb посилання") },
                 placeholder = { Text("https://www.imdb.com/title/ttXXXXXXX") },
                 isError = imdbUrlError != null,
@@ -878,7 +906,9 @@ fun AddSeriesScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(imdbFocus)
-                    .onFocusChanged { if (!it.isFocused) imdbUrlTouched = true },
+                    .onFocusChanged { fs ->
+                        if (!fs.isFocused && imdbUrlDirty) imdbUrlTouched = true
+                    },
                 singleLine = true,
                 enabled = !isSaving,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
