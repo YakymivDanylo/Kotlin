@@ -57,10 +57,10 @@ import com.danylo.seriesdiary.ui.theme.SeriesDiaryTheme
 import com.danylo.seriesdiary.viewmodel.*
 import com.example.compose.*
 
-// ─── IMDb URL validation regex ───
+
 private val IMDB_URL_REGEX = Regex("""^https?://www\.imdb\.com/title/tt\d{7,8}/?(\?[^#\s]*)?$""")
 
-// ─── Validation helpers ───
+
 
 private fun validateTitle(title: String): String? = when {
     title.isBlank() -> "Назва не може бути порожньою"
@@ -97,14 +97,14 @@ private fun validateImdbUrl(url: String): String? {
     else "Формат: https://www.imdb.com/title/ttXXXXXXX"
 }
 
-// ─── Activity ───
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val windowSizeClass = calculateWindowSizeClass(this)
+            val windowSizeClass = calculateWindowSizeClass(this) //hint
             SeriesDiaryTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     RootNavigation(widthSizeClass = windowSizeClass.widthSizeClass)
@@ -114,7 +114,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ─── Navigation ───
+
 
 @Composable
 fun RootNavigation(widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact) {
@@ -149,7 +149,6 @@ fun RootNavigation(widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.C
     }
 }
 
-// ─── Onboarding ───
 
 @Composable
 fun OnboardingScreen(onStartClick: (String) -> Unit) {
@@ -199,7 +198,6 @@ private fun OnboardingScreenPreview() {
     SeriesDiaryTheme { OnboardingScreen(onStartClick = {}) }
 }
 
-// ─── Main tabs scaffold ───
 
 @Composable
 fun MainScreenWithTabs(widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact) {
@@ -273,7 +271,6 @@ fun MainScreenWithTabs(widthSizeClass: WindowWidthSizeClass = WindowWidthSizeCla
     }
 }
 
-// ─── Shared helper composables ───
 
 @Composable
 private fun OfflineBanner() {
@@ -330,7 +327,6 @@ private fun SectionHeader(title: String) {
     Spacer(Modifier.height(8.dp))
 }
 
-// ─── Slice 1: Adaptive List Tab ───
 
 @Composable
 fun ListTab(
@@ -356,10 +352,8 @@ fun ListTab(
             }
 
             if (isExpanded) {
-                // ── Two-pane layout for tablets ──
                 Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
 
-                    // Left pane — series list (40%)
                     Column(
                         modifier = Modifier
                             .weight(0.4f)
@@ -418,7 +412,6 @@ fun ListTab(
 
                     VerticalDivider()
 
-                    // Right pane — details or placeholder (60%)
                     Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) {
                         if (selectedSeriesId != null) {
                             key(selectedSeriesId) {
@@ -439,7 +432,6 @@ fun ListTab(
                     }
                 }
             } else {
-                // ── Single-pane for phones ──
                 Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = showOnlyFavorites, onCheckedChange = { viewModel.toggleFavorites(it) })
@@ -513,7 +505,6 @@ private fun ListTabTabletPreview() {
     SeriesDiaryTheme { ListTab(navController = rememberNavController(), widthSizeClass = WindowWidthSizeClass.Expanded) }
 }
 
-// ─── Slice 2: Adaptive Grid Tab ───
 
 @Composable
 fun GridTab(
@@ -595,7 +586,6 @@ private fun GridTabTabletPreview() {
     SeriesDiaryTheme { GridTab(navController = rememberNavController(), widthSizeClass = WindowWidthSizeClass.Expanded) }
 }
 
-// ─── Details Screen ───
 
 @Composable
 fun DetailsScreen(seriesId: String, onBack: () -> Unit) {
@@ -670,7 +660,6 @@ private fun DetailsScreenPreview() {
     SeriesDiaryTheme { DetailsScreen(seriesId = "1", onBack = {}) }
 }
 
-// ─── Slices 3–6: Extended Add Series Form ───
 
 @Composable
 fun AddSeriesScreen(
@@ -682,7 +671,6 @@ fun AddSeriesScreen(
     val isExpanded = widthSizeClass == WindowWidthSizeClass.Expanded
     val isSaving = uiState is AddSeriesUiState.Saving
 
-    // ── Form state ──
     var title by remember { mutableStateOf("") }
     var year by remember { mutableStateOf("") }
     var status by remember { mutableStateOf<SeriesStatus?>(null) }
@@ -693,8 +681,6 @@ fun AddSeriesScreen(
     var comment by remember { mutableStateOf("") }
     var statusMenuExpanded by remember { mutableStateOf(false) }
 
-    // ── Touched/Dirty state ──
-    // dirty = user typed something; touched = blurred after dirty (or submit attempted)
     var titleTouched by remember { mutableStateOf(false) }
     var titleDirty by remember { mutableStateOf(false) }
     var yearTouched by remember { mutableStateOf(false) }
@@ -705,14 +691,12 @@ fun AddSeriesScreen(
     var imdbUrlTouched by remember { mutableStateOf(false) }
     var imdbUrlDirty by remember { mutableStateOf(false) }
 
-    // ── Per-field error messages ──
     val titleError = if (titleTouched) validateTitle(title) else null
     val yearError = if (yearTouched) validateYear(year) else null
     val statusError = if (statusTouched) validateStatus(status) else null
     val seasonsError = if (seasonsTouched) validateSeasons(numberOfSeasons) else null
     val imdbUrlError = if (imdbUrlTouched) validateImdbUrl(imdbUrl) else null
 
-    // ── Overall form validity (derivedStateOf avoids redundant recompositions) ──
     val isFormValid by remember {
         derivedStateOf {
             validateTitle(title) == null &&
@@ -723,7 +707,6 @@ fun AddSeriesScreen(
         }
     }
 
-    // ── Focus management (Slice 5) ──
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val titleFocus = remember { FocusRequester() }
@@ -736,12 +719,11 @@ fun AddSeriesScreen(
         if (uiState is AddSeriesUiState.Saved) { viewModel.reset(); onDone() }
     }
 
-    // ── Adaptive wrapper: centered max-width on tablet (Slice 6) ──
     Box(
         modifier = Modifier
             .fillMaxSize()
             .imePadding()
-            .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } },
+            .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } },//hint
         contentAlignment = Alignment.TopCenter
     ) {
         Column(
@@ -753,7 +735,6 @@ fun AddSeriesScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // Header
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
                 IconButton(onClick = onDone, enabled = !isSaving) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
@@ -762,16 +743,14 @@ fun AddSeriesScreen(
                 Text("Новий серіал", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
             }
 
-            // ── Section 1: Основна інформація ──
             SectionHeader("Основна інформація")
 
-            // Назва (текстове поле, валідація: не порожнє + мін. 2 символи)
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it; titleDirty = true },
                 label = { Text("Назва серіалу *") },
                 isError = titleError != null,
-                supportingText = titleError?.let { err -> { Text(err, color = MaterialTheme.colorScheme.error) } },
+                supportingText = titleError?.let { err -> { Text(err, color = MaterialTheme.colorScheme.error) } },//hint
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(titleFocus)
@@ -785,7 +764,6 @@ fun AddSeriesScreen(
             )
             Spacer(Modifier.height(8.dp))
 
-            // Рік випуску (числове поле, валідація: діапазон 1900–2100)
             OutlinedTextField(
                 value = year,
                 onValueChange = { year = it.filter(Char::isDigit); yearDirty = true },
@@ -801,11 +779,10 @@ fun AddSeriesScreen(
                 singleLine = true,
                 enabled = !isSaving,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { seasonsFocus.requestFocus() })
+                keyboardActions = KeyboardActions(onNext = { seasonsFocus.requestFocus() }) //hint
             )
             Spacer(Modifier.height(8.dp))
 
-            // Статус (випадаючий список, валідація: вибір зроблено)
             ExposedDropdownMenuBox(
                 expanded = statusMenuExpanded,
                 onExpandedChange = { if (!isSaving) statusMenuExpanded = it }
@@ -841,10 +818,8 @@ fun AddSeriesScreen(
                 }
             }
 
-            // ── Section 2: Оцінка та параметри ──
             SectionHeader("Оцінка та параметри")
 
-            // Рейтинг (повзунок 0.0–10.0)
             Text(
                 text = "Рейтинг: ${"%.1f".format(ratingSlider)}",
                 style = MaterialTheme.typography.bodyMedium,
@@ -860,7 +835,6 @@ fun AddSeriesScreen(
             )
             Spacer(Modifier.height(8.dp))
 
-            // Кількість сезонів (числове поле, валідація: 1–50)
             OutlinedTextField(
                 value = numberOfSeasons,
                 onValueChange = { numberOfSeasons = it.filter(Char::isDigit); seasonsDirty = true },
@@ -880,7 +854,6 @@ fun AddSeriesScreen(
             )
             Spacer(Modifier.height(8.dp))
 
-            // Улюблений (перемикач)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -890,10 +863,8 @@ fun AddSeriesScreen(
                 Switch(checked = isFavorite, onCheckedChange = { isFavorite = it }, enabled = !isSaving)
             }
 
-            // ── Section 3: Додаткові відомості ──
             SectionHeader("Додаткові відомості")
 
-            // IMDb URL (валідація за регулярним виразом)
             OutlinedTextField(
                 value = imdbUrl,
                 onValueChange = { imdbUrl = it; imdbUrlDirty = true },
@@ -916,7 +887,6 @@ fun AddSeriesScreen(
             )
             Spacer(Modifier.height(8.dp))
 
-            // Коментар (текстове поле, багаторядковий)
             OutlinedTextField(
                 value = comment,
                 onValueChange = { comment = it },
@@ -936,10 +906,8 @@ fun AddSeriesScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Кнопка збереження (заблокована, поки форма невалідна)
             Button(
                 onClick = {
-                    // позначаємо всі поля як торкнуті перед збереженням
                     titleTouched = true; yearTouched = true; statusTouched = true
                     seasonsTouched = true; imdbUrlTouched = true
                     if (isFormValid && !isSaving) {
@@ -988,7 +956,6 @@ private fun AddSeriesTabletPreview() {
     SeriesDiaryTheme { AddSeriesScreen(onDone = {}, widthSizeClass = WindowWidthSizeClass.Expanded) }
 }
 
-// ─── Settings Tab ───
 
 @Composable
 fun SettingsTab(viewModel: SettingsViewModel = viewModel()) {
