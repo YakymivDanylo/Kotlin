@@ -1,4 +1,8 @@
-@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3WindowSizeClassApi::class)
+@file:OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalMaterial3WindowSizeClassApi::class,
+    ExperimentalFoundationApi::class
+)
 
 package com.danylo.seriesdiary
 
@@ -8,11 +12,27 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -24,12 +44,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -39,6 +62,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -329,6 +353,166 @@ private fun SectionHeader(title: String) {
 
 
 @Composable
+private fun LazyItemScope.SeriesListRow(
+    series: TvSeriesEntity,
+    isMutating: Boolean,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val visibleState = remember(series.id) {
+        androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true }
+    }
+    var menuExpanded by remember(series.id) { mutableStateOf(false) }
+
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart && !isMutating) {
+                onDelete()
+                true
+            } else false
+        }
+    )
+
+    AnimatedVisibility(
+        visibleState = visibleState,
+        enter = fadeIn(tween(350)) +
+                scaleIn(initialScale = 0.85f, animationSpec = tween(350)) +
+                expandVertically(tween(350)),
+        exit = fadeOut(tween(250)) +
+                scaleOut(targetScale = 0.85f, animationSpec = tween(250)) +
+                shrinkVertically(tween(250)),
+        modifier = Modifier.animateItem(
+            fadeInSpec = tween(300),
+            placementSpec = spring(stiffness = Spring.StiffnessLow),
+            fadeOutSpec = tween(300)
+        )
+    ) {
+        SwipeToDismissBox(
+            state = dismissState,
+            enableDismissFromStartToEnd = false,
+            backgroundContent = {
+                val isActive = dismissState.targetValue == SwipeToDismissBoxValue.EndToStart
+                val bgColor by animateColorAsState(
+                    targetValue = if (isActive)
+                        MaterialTheme.colorScheme.errorContainer
+                    else MaterialTheme.colorScheme.surfaceVariant,
+                    label = "swipeBg"
+                )
+                val iconScale by animateFloatAsState(
+                    targetValue = if (isActive) 1.2f else 0.85f,
+                    animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                    label = "iconScale"
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(vertical = 4.dp)
+                        .background(bgColor, MaterialTheme.shapes.medium)
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Видалити",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.scale(iconScale)
+                        )
+                    }
+                }
+            }
+        ) {
+            Box {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .combinedClickable(
+                            enabled = !isMutating,
+                            onClick = onClick,
+                            onLongClick = { menuExpanded = true }
+                        ),
+                    colors = if (isSelected)
+                        CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    else CardDefaults.cardColors()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(series.title, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Рік: ${series.releaseYear}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(onClick = onToggleFavorite, enabled = !isMutating) {
+                            Icon(
+                                if (series.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = null,
+                                tint = if (series.isFavorite) RatingHigh else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                if (series.isFavorite) "Прибрати з улюблених"
+                                else "Додати до улюблених"
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                if (series.isFavorite) Icons.Default.StarBorder else Icons.Default.Star,
+                                contentDescription = null,
+                                tint = RatingHigh
+                            )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onToggleFavorite()
+                        }
+                    )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = {
+                            Text("Видалити", color = MaterialTheme.colorScheme.error)
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onDelete()
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
 fun ListTab(
     navController: NavHostController,
     viewModel: ListViewModel = viewModel(),
@@ -337,6 +521,7 @@ fun ListTab(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val showOnlyFavorites by viewModel.showOnlyFavorites.collectAsStateWithLifecycle()
     val isMutating by viewModel.isMutating.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val isExpanded = widthSizeClass == WindowWidthSizeClass.Expanded
     var selectedSeriesId by remember { mutableStateOf<String?>(null) }
@@ -373,34 +558,21 @@ fun ListTab(
                                 if (state.series.isEmpty()) {
                                     EmptyView("Немає серіалів")
                                 } else {
-                                    LazyColumn(modifier = Modifier.weight(1f)) {
-                                        items(state.series, key = { it.id }) { series ->
-                                            val isSelected = series.id == selectedSeriesId
-                                            Card(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(vertical = 4.dp)
-                                                    .clickable(enabled = !isMutating) { selectedSeriesId = series.id },
-                                                colors = if (isSelected)
-                                                    CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                                                else CardDefaults.cardColors()
-                                            ) {
-                                                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                    Column(modifier = Modifier.weight(1f)) {
-                                                        Text(series.title, style = MaterialTheme.typography.titleMedium)
-                                                        Text("Рік: ${series.releaseYear}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                    }
-                                                    IconButton(onClick = { viewModel.toggleFavorite(series) }, enabled = !isMutating) {
-                                                        Icon(
-                                                            if (series.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                                                            contentDescription = null,
-                                                            tint = if (series.isFavorite) RatingHigh else MaterialTheme.colorScheme.onSurfaceVariant
-                                                        )
-                                                    }
-                                                    IconButton(onClick = { viewModel.deleteSeries(series.id) }, enabled = !isMutating) {
-                                                        Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                                                    }
-                                                }
+                                    PullToRefreshBox(
+                                        isRefreshing = isRefreshing,
+                                        onRefresh = { viewModel.pullToRefresh() },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                                            items(state.series, key = { it.id }) { series ->
+                                                SeriesListRow(
+                                                    series = series,
+                                                    isMutating = isMutating,
+                                                    isSelected = series.id == selectedSeriesId,
+                                                    onClick = { selectedSeriesId = series.id },
+                                                    onToggleFavorite = { viewModel.toggleFavorite(series) },
+                                                    onDelete = { viewModel.deleteSeries(series.id) }
+                                                )
                                             }
                                         }
                                     }
@@ -446,30 +618,21 @@ fun ListTab(
                             if (state.series.isEmpty()) {
                                 Box(modifier = Modifier.weight(1f)) { EmptyView("Немає серіалів. Додайте перший через кнопку +") }
                             } else {
-                                LazyColumn(modifier = Modifier.weight(1f)) {
-                                    items(state.series, key = { it.id }) { series ->
-                                        Card(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 4.dp)
-                                                .clickable(enabled = !isMutating) { navController.navigate("details/${series.id}") }
-                                        ) {
-                                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(series.title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-                                                    Text("Рік: ${series.releaseYear}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                }
-                                                IconButton(onClick = { viewModel.toggleFavorite(series) }, enabled = !isMutating) {
-                                                    Icon(
-                                                        if (series.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                                                        contentDescription = null,
-                                                        tint = if (series.isFavorite) RatingHigh else MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
-                                                }
-                                                IconButton(onClick = { viewModel.deleteSeries(series.id) }, enabled = !isMutating) {
-                                                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                                                }
-                                            }
+                                PullToRefreshBox(
+                                    isRefreshing = isRefreshing,
+                                    onRefresh = { viewModel.pullToRefresh() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                                        items(state.series, key = { it.id }) { series ->
+                                            SeriesListRow(
+                                                series = series,
+                                                isMutating = isMutating,
+                                                isSelected = false,
+                                                onClick = { navController.navigate("details/${series.id}") },
+                                                onToggleFavorite = { viewModel.toggleFavorite(series) },
+                                                onDelete = { viewModel.deleteSeries(series.id) }
+                                            )
                                         }
                                     }
                                 }
@@ -588,6 +751,124 @@ private fun GridTabTabletPreview() {
 
 
 @Composable
+private fun ExpandableInfoSection(series: TvSeriesEntity) {
+    var expanded by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 300),
+        label = "arrowRotation"
+    )
+    val headerBg by animateColorAsState(
+        targetValue = if (expanded)
+            MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surfaceVariant,
+        animationSpec = tween(durationMillis = 300),
+        label = "headerBg"
+    )
+    val headerContent by animateColorAsState(
+        targetValue = if (expanded)
+            MaterialTheme.colorScheme.onPrimaryContainer
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(durationMillis = 300),
+        label = "headerContent"
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow))
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(headerBg)
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Info,
+                    contentDescription = null,
+                    tint = headerContent
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Додаткові деталі",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = headerContent,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Згорнути" else "Розгорнути",
+                    tint = headerContent,
+                    modifier = Modifier.rotate(rotation)
+                )
+            }
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(tween(280)) + fadeIn(tween(280)),
+                exit = shrinkVertically(tween(220)) + fadeOut(tween(220))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    DetailRow(Icons.Default.LiveTv, "Сезонів", series.numberOfSeasons.toString())
+                    Spacer(Modifier.height(10.dp))
+                    DetailRow(
+                        Icons.Default.Star,
+                        "В улюблених",
+                        if (series.isFavorite) "Так" else "Ні"
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    DetailRow(
+                        Icons.Default.Link,
+                        "IMDb",
+                        if (series.imdbUrl.isNotBlank()) series.imdbUrl else "—"
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    DetailRow(
+                        Icons.Default.Comment,
+                        "Коментар",
+                        if (series.comment.isNotBlank()) series.comment else "—"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String
+) {
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+
+@Composable
 fun DetailsScreen(seriesId: String, onBack: () -> Unit) {
     val application = LocalContext.current.applicationContext as Application
     val factory = remember(seriesId) { DetailsViewModel.Factory(application, seriesId) }
@@ -598,7 +879,12 @@ fun DetailsScreen(seriesId: String, onBack: () -> Unit) {
         if (uiState is DetailsUiState.Success && (uiState as DetailsUiState.Success).isFromCache) {
             OfflineBanner()
         }
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+        ) {
             Button(onClick = onBack) { Text("Назад", style = MaterialTheme.typography.labelLarge) }
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -646,6 +932,9 @@ fun DetailsScreen(seriesId: String, onBack: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Опис: Чудовий серіал, який варто подивитись кожному. Відстежуйте свої епізоди тут!", style = MaterialTheme.typography.bodyLarge)
+                    Spacer(modifier = Modifier.height(20.dp))
+                    ExpandableInfoSection(series = series)
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
                 is DetailsUiState.Error -> ErrorView(state.message, onRetry = { viewModel.loadDetails() })
             }

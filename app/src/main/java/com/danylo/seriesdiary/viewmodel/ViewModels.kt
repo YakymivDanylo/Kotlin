@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
@@ -50,6 +51,9 @@ class ListViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isMutating = MutableStateFlow(false)
     val isMutating: StateFlow<Boolean> = _isMutating.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     private val _errorEvents = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val errorEvents = _errorEvents.asSharedFlow()
@@ -86,6 +90,23 @@ class ListViewModel(application: Application) : AndroidViewModel(application) {
                 is FetchResult.Offline -> _loadStatus.value = LoadStatus.Offline
                 is FetchResult.Error -> _loadStatus.value = LoadStatus.Error(result.message)
             }
+        }
+    }
+
+    fun pullToRefresh() {
+        if (_isRefreshing.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            delay(900)
+            when (val result = repository.refreshSeries()) {
+                is FetchResult.Success -> _loadStatus.value = LoadStatus.Loaded
+                is FetchResult.Offline -> _loadStatus.value = LoadStatus.Offline
+                is FetchResult.Error -> {
+                    _loadStatus.value = LoadStatus.Error(result.message)
+                    _errorEvents.tryEmit(result.message)
+                }
+            }
+            _isRefreshing.value = false
         }
     }
 
