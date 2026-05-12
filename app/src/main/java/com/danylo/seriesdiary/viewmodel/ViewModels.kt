@@ -171,6 +171,7 @@ class DetailsViewModel(
 
     init {
         loadDetails()
+        observeLocalChanges()
     }
 
     fun loadDetails() {
@@ -187,6 +188,28 @@ class DetailsViewModel(
                 }
                 is FetchResult.Error -> _uiState.value = DetailsUiState.Error(result.message)
             }
+        }
+    }
+
+    /**
+     * Реактивно стежить за змінами цього серіалу у Room — щойно photoPath оновився,
+     * UI отримує новий state без явного reload.
+     */
+    private fun observeLocalChanges() {
+        viewModelScope.launch {
+            repository.observeCached().collect { list ->
+                val current = list.firstOrNull { it.id == seriesId } ?: return@collect
+                val state = _uiState.value
+                if (state is DetailsUiState.Success && state.series != current) {
+                    _uiState.value = state.copy(series = current)
+                }
+            }
+        }
+    }
+
+    fun setPhoto(path: String?) {
+        viewModelScope.launch {
+            repository.updatePhoto(seriesId, path)
         }
     }
 

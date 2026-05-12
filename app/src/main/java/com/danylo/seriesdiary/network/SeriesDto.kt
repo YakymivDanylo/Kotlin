@@ -18,8 +18,12 @@ data class SeriesDto(
     @SerialName("imdbUrl") val imdbUrl: String? = null,
     @SerialName("comment") val comment: String? = null
 ) {
-    // previousFavorite is a fallback for records created before isFavorite was added to the API
-    fun toEntity(previousFavorite: Boolean = false): TvSeriesEntity = TvSeriesEntity(
+    // previousFavorite/previousPhotoPath — локальні поля (фото та улюблене) зберігаються між refresh-ами,
+    // адже API їх може не повертати
+    fun toEntity(
+        previousFavorite: Boolean = false,
+        previousPhotoPath: String? = null
+    ): TvSeriesEntity = TvSeriesEntity(
         id = id ?: title,
         title = title,
         releaseYear = releaseYear,
@@ -28,7 +32,8 @@ data class SeriesDto(
         isFavorite = isFavorite ?: previousFavorite,
         numberOfSeasons = numberOfSeasons ?: 1,
         imdbUrl = imdbUrl ?: "",
-        comment = comment ?: ""
+        comment = comment ?: "",
+        photoPath = previousPhotoPath
     )
 }
 

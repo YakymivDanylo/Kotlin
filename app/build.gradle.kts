@@ -71,6 +71,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
 
+    // ЛР №12: геолокація через Fused Location Provider
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    // ЛР №12: завантаження фото з файлової системи у Compose
+    implementation("io.coil-kt:coil-compose:2.7.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
