@@ -128,7 +128,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val windowSizeClass = calculateWindowSizeClass(this) //hint
+            val windowSizeClass = calculateWindowSizeClass(this)
             SeriesDiaryTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     RootNavigation(widthSizeClass = windowSizeClass.widthSizeClass)
@@ -362,11 +362,11 @@ private fun LazyItemScope.SeriesListRow(
     onDelete: () -> Unit
 ) {
     val visibleState = remember(series.id) {
-        androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true }
+        androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } //hint запуск анімації
     }
     var menuExpanded by remember(series.id) { mutableStateOf(false) }
 
-    val dismissState = rememberSwipeToDismissBoxState(
+    val dismissState = rememberSwipeToDismissBoxState(//hint
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart && !isMutating) {
                 onDelete()
@@ -375,7 +375,7 @@ private fun LazyItemScope.SeriesListRow(
         }
     )
 
-    AnimatedVisibility(
+    AnimatedVisibility(//hint запуск анімацій
         visibleState = visibleState,
         enter = fadeIn(tween(350)) +
                 scaleIn(initialScale = 0.85f, animationSpec = tween(350)) +
@@ -435,7 +435,7 @@ private fun LazyItemScope.SeriesListRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
-                        .combinedClickable(
+                        .combinedClickable(//hint
                             enabled = !isMutating,
                             onClick = onClick,
                             onLongClick = { menuExpanded = true }
@@ -558,7 +558,7 @@ fun ListTab(
                                 if (state.series.isEmpty()) {
                                     EmptyView("Немає серіалів")
                                 } else {
-                                    PullToRefreshBox(
+                                    PullToRefreshBox(//hint
                                         isRefreshing = isRefreshing,
                                         onRefresh = { viewModel.pullToRefresh() },
                                         modifier = Modifier.weight(1f)
@@ -751,7 +751,7 @@ private fun GridTabTabletPreview() {
 
 
 @Composable
-private fun ExpandableInfoSection(series: TvSeriesEntity) {
+private fun ExpandableInfoSection(series: TvSeriesEntity) { //hint плавне розгортання анімації
     var expanded by remember { mutableStateOf(false) }
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
@@ -1012,7 +1012,7 @@ fun AddSeriesScreen(
         modifier = Modifier
             .fillMaxSize()
             .imePadding()
-            .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } },//hint
+            .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } },
         contentAlignment = Alignment.TopCenter
     ) {
         Column(
@@ -1039,7 +1039,7 @@ fun AddSeriesScreen(
                 onValueChange = { title = it; titleDirty = true },
                 label = { Text("Назва серіалу *") },
                 isError = titleError != null,
-                supportingText = titleError?.let { err -> { Text(err, color = MaterialTheme.colorScheme.error) } },//hint
+                supportingText = titleError?.let { err -> { Text(err, color = MaterialTheme.colorScheme.error) } },
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(titleFocus)
@@ -1068,7 +1068,7 @@ fun AddSeriesScreen(
                 singleLine = true,
                 enabled = !isSaving,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { seasonsFocus.requestFocus() }) //hint
+                keyboardActions = KeyboardActions(onNext = { seasonsFocus.requestFocus() })
             )
             Spacer(Modifier.height(8.dp))
 
