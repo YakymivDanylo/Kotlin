@@ -20,7 +20,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 /**
- * Фіксована точка-орієнтир для розрахунку відстані (тематика — серіали).
+ * Фіксована точка-орієнтир для розрахунку відстані.
  * Координати HBO HQ, 1100 Avenue of the Americas, New York, NY.
  */
 object ReferencePoint {
