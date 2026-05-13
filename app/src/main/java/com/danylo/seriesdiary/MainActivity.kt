@@ -362,11 +362,11 @@ private fun LazyItemScope.SeriesListRow(
     onDelete: () -> Unit
 ) {
     val visibleState = remember(series.id) {
-        androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } //hint запуск анімації
+        androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } //hint запуск анімації при появі рядка
     }
     var menuExpanded by remember(series.id) { mutableStateOf(false) }
 
-    val dismissState = rememberSwipeToDismissBoxState(//hint
+    val dismissState = rememberSwipeToDismissBoxState(//hint видалення
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart && !isMutating) {
                 onDelete()
@@ -375,7 +375,7 @@ private fun LazyItemScope.SeriesListRow(
         }
     )
 
-    AnimatedVisibility(//hint запуск анімацій
+    AnimatedVisibility(//hint
         visibleState = visibleState,
         enter = fadeIn(tween(350)) +
                 scaleIn(initialScale = 0.85f, animationSpec = tween(350)) +
@@ -558,7 +558,7 @@ fun ListTab(
                                 if (state.series.isEmpty()) {
                                     EmptyView("Немає серіалів")
                                 } else {
-                                    PullToRefreshBox(//hint
+                                    PullToRefreshBox(//hint оновлення
                                         isRefreshing = isRefreshing,
                                         onRefresh = { viewModel.pullToRefresh() },
                                         modifier = Modifier.weight(1f)
