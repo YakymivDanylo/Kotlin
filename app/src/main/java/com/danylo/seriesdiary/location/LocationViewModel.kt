@@ -95,7 +95,7 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
                     )
                 } else {
                     val distance = FloatArray(1)
-                    Location.distanceBetween(
+                    Location.distanceBetween(//наша локація
                         location.latitude, location.longitude,
                         ReferencePoint.LATITUDE, ReferencePoint.LONGITUDE,
                         distance
