@@ -14,7 +14,8 @@ data class TvSeriesEntity(
     val isFavorite: Boolean = false,
     val numberOfSeasons: Int = 1,
     val imdbUrl: String = "",
-    val comment: String = ""
+    val comment: String = "",
+    val photoPath: String? = null
 ) {
     fun toSeriesStatus(): SeriesStatus =
         SeriesStatus.entries.find { it.name == status } ?: SeriesStatus.UNKNOWN

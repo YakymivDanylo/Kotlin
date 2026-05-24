@@ -76,10 +76,26 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.danylo.seriesdiary.data.TvSeriesEntity
+import com.danylo.seriesdiary.location.LocationUiState
+import com.danylo.seriesdiary.location.LocationViewModel
+import com.danylo.seriesdiary.location.ReferencePoint
+import com.danylo.seriesdiary.media.PhotoStorage
 import com.danylo.seriesdiary.model.SeriesStatus
+import com.danylo.seriesdiary.permissions.LocationPermissionGate
+import com.danylo.seriesdiary.permissions.PermissionGate
 import com.danylo.seriesdiary.ui.theme.SeriesDiaryTheme
 import com.danylo.seriesdiary.viewmodel.*
 import com.example.compose.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 
 private val IMDB_URL_REGEX = Regex("""^https?://www\.imdb\.com/title/tt\d{7,8}/?(\?[^#\s]*)?$""")
@@ -256,6 +272,18 @@ fun MainScreenWithTabs(widthSizeClass: WindowWidthSizeClass = WindowWidthSizeCla
                     }
                 )
                 NavigationBarItem(
+                    icon = { Icon(Icons.Default.LocationOn, contentDescription = "Локація") },
+                    label = { Text("Локація", style = MaterialTheme.typography.labelSmall) },
+                    selected = currentTab == "tab_location",
+                    onClick = {
+                        currentTab = "tab_location"
+                        bottomNavController.navigate("tab_location") {
+                            popUpTo(bottomNavController.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true; restoreState = true
+                        }
+                    }
+                )
+                NavigationBarItem(
                     icon = { Icon(Icons.Default.Settings, contentDescription = "Налаштування") },
                     label = { Text("Налаштування", style = MaterialTheme.typography.labelSmall) },
                     selected = currentTab == "tab_settings",
@@ -277,6 +305,7 @@ fun MainScreenWithTabs(widthSizeClass: WindowWidthSizeClass = WindowWidthSizeCla
         ) {
             composable("tab_list") { ListTab(bottomNavController, widthSizeClass = widthSizeClass) }
             composable("tab_grid") { GridTab(bottomNavController, widthSizeClass = widthSizeClass) }
+            composable("tab_location") { LocationTab() }
             composable("tab_settings") { SettingsTab() }
             composable("add_series") {
                 AddSeriesScreen(
@@ -932,11 +961,121 @@ fun DetailsScreen(seriesId: String, onBack: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Опис: Чудовий серіал, який варто подивитись кожному. Відстежуйте свої епізоди тут!", style = MaterialTheme.typography.bodyLarge)
+
+                    Spacer(modifier = Modifier.height(20.dp))
+                    ScenePhotoSection(
+                        photoPath = series.photoPath,
+                        onPhotoCaptured = { path -> viewModel.setPhoto(path) },
+                        onPhotoCleared = { viewModel.setPhoto(null) }
+                    )
+
                     Spacer(modifier = Modifier.height(20.dp))
                     ExpandableInfoSection(series = series)
                     Spacer(modifier = Modifier.height(16.dp))
                 }
                 is DetailsUiState.Error -> ErrorView(state.message, onRetry = { viewModel.loadDetails() })
+            }
+        }
+    }
+}
+
+/**
+ * Секція "Скріншот сцени" з PermissionGate на CAMERA.
+ * Дозвіл запитується тільки коли користувач натискає "Зробити скріншот сцени".
+ */
+@Composable
+private fun ScenePhotoSection(
+    photoPath: String?,
+    onPhotoCaptured: (String) -> Unit,
+    onPhotoCleared: () -> Unit
+) {
+    val context = LocalContext.current
+    // ховаємо PermissionGate за прапором, щоб не запитувати дозвіл при першому відкритті
+    var requestCamera by remember { mutableStateOf(false) }
+    var pendingFile by remember { mutableStateOf<File?>(null) }
+
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        val file = pendingFile
+        if (success && file != null) {
+            onPhotoCaptured(file.absolutePath)
+        } else {
+            // користувач скасував або камера не записала кадр — підчищаємо порожній файл
+            file?.let { runCatching { if (it.exists()) it.delete() } }
+        }
+        pendingFile = null
+        requestCamera = false
+    }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Скріншот сцени",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                if (photoPath != null) {
+                    IconButton(onClick = onPhotoCleared) {
+                        Icon(Icons.Default.Delete, contentDescription = "Видалити фото", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+
+            if (photoPath != null && File(photoPath).exists()) {
+                AsyncImage(
+                    model = File(photoPath),
+                    contentDescription = "Скріншот сцени",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = { requestCamera = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Переробити скріншот")
+                }
+            } else {
+                Text(
+                    text = "Збережіть кадр сцени, який вразив. Фото залишається лише на пристрої.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { requestCamera = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Зробити скріншот сцени")
+                }
+            }
+
+            if (requestCamera) {
+                Spacer(Modifier.height(12.dp))
+                PermissionGate(
+                    permission = android.Manifest.permission.CAMERA,
+                    featureTitle = "Доступ до камери",
+                    featureRationale = "Застосунок використовує камеру, щоб ви могли зберегти кадр улюбленої сцени серіалу у щоденнику. Фото зберігається тільки локально."
+                ) {
+                    // дозвіл надано — одразу запускаємо камеру
+                    LaunchedEffect(Unit) {
+                        val file = PhotoStorage.createPhotoFile(context)
+                        pendingFile = file
+                        takePictureLauncher.launch(PhotoStorage.uriFor(context, file))
+                    }
+                }
             }
         }
     }
@@ -1295,4 +1434,137 @@ fun SettingsTab(viewModel: SettingsViewModel = viewModel()) {
 @Composable
 private fun SettingsTabPreview() {
     SeriesDiaryTheme { SettingsTab() }
+}
+
+
+@Composable
+fun LocationTab(viewModel: LocationViewModel = viewModel()) {
+    LocationPermissionGate(
+        featureTitle = "Доступ до геолокації",
+        featureRationale = "Застосунок використовує геолокацію, щоб обчислити відстань від вас до студії HBO у Нью-Йорку та показати координати з точністю визначення."
+    ) {
+        LocationContent(viewModel)
+    }
+}
+
+@Composable
+private fun LocationContent(viewModel: LocationViewModel) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // запитуємо локацію автоматично, коли дозвіл щойно надано (state=Idle)
+    LaunchedEffect(Unit) {
+        if (state is LocationUiState.Idle) viewModel.refresh()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text("Локація", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Орієнтир: ${ReferencePoint.NAME}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(16.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                when (val s = state) {
+                    is LocationUiState.Idle -> {
+                        Text(
+                            text = "Натисніть «Оновити», щоб отримати поточні координати.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    is LocationUiState.Loading -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Отримання координат…", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    is LocationUiState.Success -> {
+                        LocationField("Широта", "%.6f°".format(s.latitude))
+                        Spacer(Modifier.height(8.dp))
+                        LocationField("Довгота", "%.6f°".format(s.longitude))
+                        Spacer(Modifier.height(8.dp))
+                        LocationField("Точність", "${"%.1f".format(s.accuracyMeters)} м")
+                        Spacer(Modifier.height(8.dp))
+                        LocationField("Останнє оновлення", formatTimestamp(s.timestampMillis))
+                        Spacer(Modifier.height(8.dp))
+                        LocationField(
+                            label = "Відстань до ${ReferencePoint.NAME}",
+                            value = formatDistance(s.distanceToReferenceMeters)
+                        )
+                    }
+                    is LocationUiState.Error -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.ErrorOutline,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = s.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+        Button(
+            onClick = { viewModel.refresh() },
+            enabled = state !is LocationUiState.Loading,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.Refresh, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Оновити локацію")
+        }
+    }
+}
+
+@Composable
+private fun LocationField(label: String, value: String) {
+    Row(verticalAlignment = Alignment.Top) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(0.45f)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(0.55f)
+        )
+    }
+}
+
+private fun formatTimestamp(ms: Long): String {
+    if (ms <= 0L) return "—"
+    val format = SimpleDateFormat("HH:mm:ss dd.MM.yyyy", Locale("uk", "UA"))
+    return format.format(Date(ms))
+}
+
+private fun formatDistance(meters: Float): String =
+    if (meters < 1000f) "${"%.0f".format(meters)} м"
+    else "${"%.1f".format(meters / 1000f)} км"
+
+@Preview(name = "Location – Light", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
+@Preview(name = "Location – Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = false)
+@Composable
+private fun LocationTabPreview() {
+    SeriesDiaryTheme { LocationTab() }
 }

@@ -5,6 +5,7 @@ import com.danylo.seriesdiary.network.RetrofitClient
 import com.danylo.seriesdiary.network.SeriesApiService
 import com.danylo.seriesdiary.network.UpdateFavoriteRequest
 import kotlinx.coroutines.flow.Flow
+import java.io.File
 import java.io.IOException
 
 sealed class FetchResult<out T> {
@@ -23,10 +24,14 @@ class SeriesRepository(
     suspend fun refreshSeries(): FetchResult<List<TvSeriesEntity>> {
         return try {
             val remote = api.getAllSeries()
-            // previousFavorite is a fallback for records created before isFavorite was in the API
-            val existingFavorites = dao.getAllSeriesOnce().associate { it.id to it.isFavorite }
+            // зберігаємо локальні поля (фото, улюблене) під час оновлення з API
+            val cachedById = dao.getAllSeriesOnce().associateBy { it.id }
             val entities = remote.map { dto ->
-                dto.toEntity(previousFavorite = existingFavorites[dto.id ?: ""] ?: false)
+                val cached = cachedById[dto.id ?: ""]
+                dto.toEntity(
+                    previousFavorite = cached?.isFavorite ?: false,
+                    previousPhotoPath = cached?.photoPath
+                )
             }
             dao.replaceAll(entities)
             FetchResult.Success(entities)
@@ -42,13 +47,16 @@ class SeriesRepository(
     suspend fun fetchSeriesById(id: String): FetchResult<TvSeriesEntity> {
         return try {
             val dto = api.getSeriesById(id)
-            val existingFavorite = dao.getById(id)?.isFavorite ?: false
-            val entity = dto.toEntity(previousFavorite = existingFavorite)
+            val cached = dao.getById(id)
+            val entity = dto.toEntity(
+                previousFavorite = cached?.isFavorite ?: false,
+                previousPhotoPath = cached?.photoPath
+            )
             dao.insert(entity)
             FetchResult.Success(entity)
         } catch (e: IOException) {
-            val cached = dao.getById(id)
-            if (cached != null) FetchResult.Offline(cached)
+            val fallback = dao.getById(id)
+            if (fallback != null) FetchResult.Offline(fallback)
             else FetchResult.Error("Немає з'єднання з мережею")
         } catch (e: Exception) {
             FetchResult.Error(e.message ?: "Не вдалось отримати серіал")
@@ -92,6 +100,8 @@ class SeriesRepository(
     suspend fun deleteSeries(id: String): FetchResult<Unit> {
         return try {
             api.deleteSeries(id)
+            // видаляємо файл фото перед видаленням запису з БД
+            dao.getById(id)?.photoPath?.let { deletePhotoFile(it) }
             dao.deleteById(id)
             FetchResult.Success(Unit)
         } catch (e: IOException) {
@@ -106,7 +116,20 @@ class SeriesRepository(
         try {
             api.updateFavorite(id, UpdateFavoriteRequest(isFavorite))
         } catch (_: Exception) {
-            // best-effort: локальний стан оновлено, API — при наступному refresh
+            //локальний стан оновлено, API — при наступному refresh
         }
+    }
+
+    suspend fun updatePhoto(id: String, newPath: String?) {
+        // якщо змінюємо/видаляємо фото — старий файл прибираємо з диску
+        val previous = dao.getById(id)?.photoPath
+        if (previous != null && previous != newPath) {
+            deletePhotoFile(previous)
+        }
+        dao.updatePhoto(id, newPath)
+    }
+
+    private fun deletePhotoFile(path: String) {
+        runCatching { File(path).takeIf { it.exists() }?.delete() }
     }
 }

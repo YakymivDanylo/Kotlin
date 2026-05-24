@@ -44,6 +44,9 @@ interface TvSeriesDao {
     @Query("UPDATE tv_series SET isFavorite = :isFavorite WHERE id = :id")
     suspend fun updateFavorite(id: String, isFavorite: Boolean)
 
+    @Query("UPDATE tv_series SET photoPath = :path WHERE id = :id")
+    suspend fun updatePhoto(id: String, path: String?)
+
     @Query("SELECT COUNT(*) FROM tv_series")
     suspend fun count(): Int
 }
