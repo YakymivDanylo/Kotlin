@@ -14,12 +14,14 @@ sealed class FetchResult<out T> {
     data class Error(val message: String) : FetchResult<Nothing>()
 }
 
-class SeriesRepository(
+// open — щоб у unit-тестах можна було створити FakeSeriesRepository,
+// який перевизначає createSeries() без реальної мережі/БД.
+open class SeriesRepository(
     private val dao: TvSeriesDao,
     private val api: SeriesApiService = RetrofitClient.api
 ) {
 
-    fun observeCached(): Flow<List<TvSeriesEntity>> = dao.getAllSeries()
+    open fun observeCached(): Flow<List<TvSeriesEntity>> = dao.getAllSeries()
 
     suspend fun refreshSeries(): FetchResult<List<TvSeriesEntity>> {
         return try {
@@ -63,7 +65,7 @@ class SeriesRepository(
         }
     }
 
-    suspend fun createSeries(
+    open suspend fun createSeries(
         title: String,
         releaseYear: Int,
         status: String,

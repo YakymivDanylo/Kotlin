@@ -294,10 +294,12 @@ sealed interface AddSeriesUiState {
     data class Error(val message: String) : AddSeriesUiState
 }
 
-class AddSeriesViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val db = AppDatabase.getInstance(application)
-    private val repository = SeriesRepository(db.tvSeriesDao())
+// звичайний ViewModel (а не AndroidViewModel) — repository інжектиться
+// у конструктор, тож unit-тест створює VM напряму без Application/Context.
+// У production екран отримує VM через AddSeriesViewModel.Factory.
+class AddSeriesViewModel(
+    private val repository: SeriesRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AddSeriesUiState>(AddSeriesUiState.Idle)
     val uiState: StateFlow<AddSeriesUiState> = _uiState.asStateFlow()
@@ -328,6 +330,15 @@ class AddSeriesViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun reset() {
         _uiState.value = AddSeriesUiState.Idle
+    }
+
+    //будує реальний SeriesRepository з БД застосунку.
+    class Factory(private val application: Application) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            val repository = SeriesRepository(AppDatabase.getInstance(application).tvSeriesDao())
+            return AddSeriesViewModel(repository) as T
+        }
     }
 }
 

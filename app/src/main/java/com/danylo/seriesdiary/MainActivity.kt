@@ -61,6 +61,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -201,17 +206,21 @@ fun OnboardingScreen(onStartClick: (String) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // ЛР №13: декоративна іконка-логотип — contentDescription = null,
+        // щоб TalkBack не зачитував її; назва застосунку є нижче у Text.
         Icon(
             imageVector = Icons.Default.Movie,
-            contentDescription = "Logo",
+            contentDescription = null,
             modifier = Modifier.size(100.dp),
             tint = MaterialTheme.colorScheme.primary
         )
         Spacer(modifier = Modifier.height(16.dp))
+        // ЛР №13: позначаємо як heading для коректної навігації TalkBack.
         Text(
             text = "Щоденник Серіалів",
             style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.semantics { heading() }
         )
         Spacer(modifier = Modifier.height(32.dp))
         OutlinedTextField(
@@ -460,10 +469,21 @@ private fun LazyItemScope.SeriesListRow(
             }
         ) {
             Box {
+                // ЛР №13: уся картка озвучується як один елемент-кнопка.
+                // mergeDescendants об'єднує назву та рік у єдиний contentDescription.
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
+                        .semantics(mergeDescendants = true) {
+                            role = Role.Button
+                            contentDescription = buildString {
+                                append(series.title)
+                                append(", ")
+                                append("рік ${series.releaseYear}")
+                                if (series.isFavorite) append(", у списку улюблених")
+                            }
+                        }
                         .combinedClickable(//hint
                             enabled = !isMutating,
                             onClick = onClick,
@@ -485,10 +505,20 @@ private fun LazyItemScope.SeriesListRow(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        IconButton(onClick = onToggleFavorite, enabled = !isMutating) {
+                        // ЛР №13: іконка зірки — окрема кнопка з осмисленим
+                        // contentDescription, що відображає поточний стан.
+                        IconButton(
+                            onClick = onToggleFavorite,
+                            enabled = !isMutating,
+                            modifier = Modifier.semantics {
+                                role = Role.Button
+                            }
+                        ) {
                             Icon(
                                 if (series.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                                contentDescription = null,
+                                contentDescription = if (series.isFavorite)
+                                    "Прибрати ${series.title} з улюблених"
+                                else "Додати ${series.title} до улюблених",
                                 tint = if (series.isFavorite) RatingHigh else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -808,14 +838,21 @@ private fun ExpandableInfoSection(series: TvSeriesEntity) { //hint плавне 
             .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow))
     ) {
         Column {
+            // ЛР №13: ряд-заголовок розгортання — одна кнопка для TalkBack.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(headerBg)
-                    .clickable { expanded = !expanded }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .clickable(
+                        onClickLabel = if (expanded) "Згорнути додаткові деталі"
+                        else "Розгорнути додаткові деталі",
+                        role = Role.Button
+                    ) { expanded = !expanded }
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .semantics(mergeDescendants = true) {},
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Декоративні іконки — contentDescription = null.
                 Icon(
                     Icons.Default.Info,
                     contentDescription = null,
@@ -830,7 +867,7 @@ private fun ExpandableInfoSection(series: TvSeriesEntity) { //hint плавне 
                 )
                 Icon(
                     Icons.Default.KeyboardArrowDown,
-                    contentDescription = if (expanded) "Згорнути" else "Розгорнути",
+                    contentDescription = null,
                     tint = headerContent,
                     modifier = Modifier.rotate(rotation)
                 )
@@ -872,7 +909,14 @@ private fun DetailRow(
     label: String,
     value: String
 ) {
-    Row(verticalAlignment = Alignment.Top) {
+    // ЛР №13: парний label/value — об'єднуємо у один елемент для TalkBack,
+    // інакше озвучується трьома окремими свайпами.
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            contentDescription = "$label: $value"
+        }
+    ) {
         Icon(
             icon,
             contentDescription = null,
@@ -934,7 +978,13 @@ fun DetailsScreen(seriesId: String, onBack: () -> Unit) {
                         else -> MaterialTheme.colorScheme.onSurface
                     }
                     val uriHandler = LocalUriHandler.current
-                    Text(series.title, style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onBackground)
+                    // ЛР №13: назва — заголовок екрану для TalkBack-навігації.
+                    Text(
+                        series.title,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.semantics { heading() }
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Рік випуску: ${series.releaseYear}", style = MaterialTheme.typography.bodyMedium)
                     Text("Статус: ${seriesStatus.description}", style = MaterialTheme.typography.bodyMedium, color = statusColor)
@@ -1091,7 +1141,11 @@ private fun DetailsScreenPreview() {
 
 @Composable
 fun AddSeriesScreen(
-    viewModel: AddSeriesViewModel = viewModel(),
+    viewModel: AddSeriesViewModel = viewModel(
+        factory = AddSeriesViewModel.Factory(
+            LocalContext.current.applicationContext as Application
+        )
+    ),
     onDone: () -> Unit,
     widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact
 ) {

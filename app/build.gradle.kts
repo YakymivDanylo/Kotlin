@@ -76,11 +76,20 @@ dependencies {
     // ЛР №12: завантаження фото з файлової системи у Compose
     implementation("io.coil-kt:coil-compose:2.7.0")
 
+    // ЛР №13: модульні тести (Завдання 1) — лише coroutines-test, без mockk (fake-и вручну)
     testImplementation(libs.junit)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+
+    // ЛР №13: UI-тести (Завдання 2)
+    // Compose ui-test жорстко залежить від Espresso (EspressoLink), тож espresso-core
+    // має бути на classpath. Espresso 3.6.1 несумісний з API 35/36 (InputManager.getInstance),
+    // тому UI-тест запускати на емуляторі API ≤ 34 (Android 14).
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
